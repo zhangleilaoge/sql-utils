@@ -43,7 +43,7 @@ def process_date(file_content):
     return file_content
 
 
-# 主函数
+# 主函数~
 def main():
     file_path = input("Enter the sql file name to process: ")
 
