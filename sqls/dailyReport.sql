@@ -1,0 +1,4345 @@
+--#/************************************ Head Section *************************************************/
+--#/*Script Use:               满卡行动日报表                                                         */
+--#/*Create Date:              2020-03-11                                                             */
+--#/*Script Developed By:      张雪龙                                                                 */
+--#/*Script Checked By:                                                                               */
+--#/*ETL Frequency: Daily:     每日                                                                   */
+--#/*Source TABLE :            ${CSROPDB}.HEMS_A_MKXD_ZXTB_LIST_A~K                                   */
+--#/*Target Table:             ${CSROPDB}.HEMS_R_MKXD_ZXTB_DAY_Z                                      */
+--#/***************************Revision History********************************************************/
+--#  Version    Revised by   Date Revised    Revision Note                                            */
+--#  -------   ------------  ------------   ----------------------------------------------------------*/
+--#  V1.0       zhangxl      2020-03-11	   脚本新增                                                   */
+--#  V2.0       zhangxl      2020-03-31	   二季度更新                                                 */
+--#  V3.0       zhangxl      2020-06-17	   增加提速包及公客部副卡带出相关需求                         */
+--#  V4.0       zhangxl      2020-07-31	   季度累计字段补加                                           */
+--#  V5.0       zhangxl      2020-08-19	   副卡翻倍兑字段补                                           */
+--#  V6.0       zhangxl      2020-10-01	   季度脚本修正                                               */
+--#  V7.0       zhangxl      2021-01-29	   作业迁移VE                                                 */
+--#  V8.0       zhangxl      2021-03-16	   补加转21X相关字段                                          */
+--#  V9.0       zhangxl      2021-03-16	   当日新增主卡（可配副卡）mix_day 修改为当日新增129及以上融合套餐主卡数*/
+--#  V10.0      zhangxl      2022-05-06	   补加字段                                                   */
+--#  V11.0      zhengym      2022-11-22	   补加字段:新增用户当月累计发展量                            */
+--#  V12.0      zhengym      2022-12-02	   报表改造						                              */
+--#  V13.0      zhengym      2022-12-29	   去掉distinct						                          */
+--#  V14.0      zhengym      2023-04-06	   修改活跃口径						                          */
+--#  V15.0      zhengym      2023-09-14	   增加字段：收费满卡、区域流量卡		                      */
+--#  V16.0      zhengym      2023-09-14	   增加字段：其中开通亲情网、上上月、上上上月满卡在本月情况	  */
+--#/***************************************************************************************************/
+
+SET ROLE ALL;
+--设置用户角色
+
+----SQL开始
+-----------------------------------------------------------满卡专项-----------------------------------------------------------------------------------------------
+CREATE LOCAL TEMPORARY TABLE AREA_INFO ON COMMIT PRESERVE ROWS
+AS(
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_K          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+)
+ORDER BY AREA_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_A          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_B          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_C          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_D          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_E          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_F          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_G          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_H          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_I          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+INSERT INTO AREA_INFO
+   SELECT P1.DATE_CD,P1.LATN_ID,P1.AREA_ID,P1.ASSET_ROW_ID,P1.ADD_DATE,P1.ACT_FLG,P1.IS_SINGLE_CUST,P1.TYPE_NAME ,P1.SALES_CHANNEL_TYPE,P1.MKT_CHANNEL_TYPE,P1.FBD_FLG,P1.CL_FLG ,P1.CDE_VAL_NAME_1
+		  ,P1.SF_FLG  		--V15.0
+		  ,P1.LOC_VOL_FLG   --V15.0
+		  ,P1.QQW_FLG		--V16.0
+          ,P2.AREA_ID_LV2
+	      ,P2.AREA_ID_LV3
+	      ,P2.AREA_ID_LV4
+	      ,P2.AREA_ID_LV5
+	      ,P2.AREA_ID_LV6
+          ,P2.AREA_ID_LV7
+          ,P2.AREA_NAME_LV7
+          ,P2.LOCAL_AREA_ID AREA_ID_LV8
+          ,P2.AREA_NAME_LV8
+     FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_J          P1  
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z  P2
+	   ON P1.AREA_ID = P2.AREA_ID  
+WHERE ((P1.DATE_CD >= '${QuarterDate2}' AND P1.DATE_CD <= '${TX_DATE}') OR (P1.DATE_CD >= DATE('${TX_DATE}')-6 AND P1.DATE_CD <= '${TX_DATE}'))
+;
+----分层分级
+--2层
+CREATE LOCAL TEMPORARY TABLE AREA_DEP_INFO ON COMMIT PRESERVE ROWS
+AS(
+SELECT AREA_ID_LV2 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当日' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    		 	--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK      	 	--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	  
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+    FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2	
+		,IS_SINGLE_CUST 
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+;	
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV2  		AREA_ID
+      ,'总体' 				IS_SINGLE_CUST 
+      ,'当日' 				DATE_TYPE
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+      ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+      ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+      ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+      ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+      ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+      ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+      ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+      ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+      ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV2 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当周' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV2 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当周' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV2 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV2 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV2 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2	
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV2 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT   --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV2 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV2		
+;
+--3层
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当日' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    		 	--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK      	 	--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	  
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+    FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3	
+		,IS_SINGLE_CUST 
+;	
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3  		AREA_ID
+      ,'总体' 				IS_SINGLE_CUST 
+      ,'当日' 				DATE_TYPE
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+      ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+      ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+      ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+      ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+      ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+      ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+      ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+      ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+      ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当周' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当周' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3	
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV3 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT   --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV3 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV3		
+;
+--4层
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当日' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    		 	--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK      	 	--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	  
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+    FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4	
+		,IS_SINGLE_CUST 
+;	
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4  		AREA_ID
+      ,'总体' 				IS_SINGLE_CUST 
+      ,'当日' 				DATE_TYPE
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+      ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+      ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+      ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+      ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+      ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+      ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+      ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+      ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+      ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当周' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当周' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4	
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV4 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT   --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV4 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV4		
+;
+--5层
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当日' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    		 	--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK      	 	--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	  
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+    FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5	
+		,IS_SINGLE_CUST 
+;	
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5  		AREA_ID
+      ,'总体' 				IS_SINGLE_CUST 
+      ,'当日' 				DATE_TYPE
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+      ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+      ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+      ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+      ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+      ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+      ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+      ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+      ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+      ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当周' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当周' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5	
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV5 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT   --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV5 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV5		
+;
+--6层
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当日' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    		 	--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK      	 	--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	  
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+    FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6	
+		,IS_SINGLE_CUST 
+;	
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6  		AREA_ID
+      ,'总体' 				IS_SINGLE_CUST 
+      ,'当日' 				DATE_TYPE
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+      ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+      ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+      ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+      ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+      ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+      ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+      ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+      ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+      ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当周' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当周' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6	
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV6 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT   --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV6 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV6		
+;
+--7层
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当日' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    		 	--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK      	 	--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	  
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+    FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7	
+		,IS_SINGLE_CUST 
+;	
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7  		AREA_ID
+      ,'总体' 				IS_SINGLE_CUST 
+      ,'当日' 				DATE_TYPE
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+      ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+      ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+      ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+      ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+      ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+      ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+      ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+      ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+      ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当周' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当周' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7	
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV7 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT   --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV7 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV7		
+;
+--8层
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当日' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    		 	--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK      	 	--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	  
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+    FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8	
+		,IS_SINGLE_CUST 
+;	
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8  		AREA_ID
+      ,'总体' 				IS_SINGLE_CUST 
+      ,'当日' 				DATE_TYPE
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+      ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+      ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+      ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+      ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+      ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+      ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+      ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+      ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+      ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+      ,COUNT( CASE WHEN ADD_DATE = DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+      ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE = DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8 		AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当周' 			DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡	
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	  
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当周' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= DATE('${TX_DATE}') - 6 AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡） 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增 
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当月' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${STMT_DATE}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8 			AREA_ID
+	  ,IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK         --全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT  --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8	
+		,IS_SINGLE_CUST 	
+;
+INSERT INTO AREA_DEP_INFO
+SELECT AREA_ID_LV8 			AREA_ID
+	  ,'总体' 				IS_SINGLE_CUST 
+	  ,'当季' 				DATE_TYPE
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') THEN ASSET_ROW_ID END) DAY_SUM_MK_CNT ---全量-日均满卡
+	  ,0 DAY_SUM_MK_LV    			--全量-满卡完成率          
+	  ,0 DAY_SUM_MK_LV_RANK        	--全量-满卡排名
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_CNT ---存量-日均满卡数（含亲情卡）
+	  ,0 DAY_ALL_LV       			--存量-满卡完成率（含亲情卡）       
+	  ,0 DAY_ALL_LV_RANK       		--存量-满卡排名（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='政企' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ZQ_CNT --其中-政企渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='实体' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_ST_CNT --其中-实体渠道（含亲情卡）
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_DZ_CNT --其中-电子渠道（含亲情卡）  
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND COALESCE(MKT_CHANNEL_TYPE,SALES_CHANNEL_TYPE) ='电子' AND CDE_VAL_NAME_1 = '星级' AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_CNT --存量-日均满卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '权益包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_QYK_CNT--其中权益卡
+	  ,COUNT( CASE WHEN TYPE_NAME = '终端包'  AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_FK_ZDK_CNT --其中终端包
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND FBD_FLG = 1 AND CL_FLG = 1 THEN ASSET_ROW_ID END) MK_FBD_DAY--其中翻倍兑
+	  ,COUNT( CASE WHEN TYPE_NAME = '亲情卡' AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQK_CNT --亲情卡日均新增
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND TYPE_NAME IN ('副卡','亲情卡') AND CL_FLG = 0 THEN ASSET_ROW_ID END) FK_N_DAY_CNT---新增移动用户-日均满卡 
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')  THEN ASSET_ROW_ID END) DAY_SUM_FK_ACT_CNT --副卡活跃率（全量）分子
+	  ,0 DAY_SUM_FK_ACT_LV 			--副卡活跃率（全量）DAY_SUM_FK_ACT_CNT/DAY_SUM_MK_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 1 THEN ASSET_ROW_ID END) DAY_CL_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_CL_FK_ACT_LV 			--副卡活跃率（存量）DAY_CL_FK_ACT_CNT/DAY_ALL_CNT
+	  ,COUNT( CASE WHEN ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND ACT_FLG = 1  AND TYPE_NAME IN ('副卡','亲情卡')   AND CL_FLG = 0 THEN ASSET_ROW_ID END) DAY_N_FK_ACT_CNT --副卡活跃率（存量）分子
+	  ,0 DAY_N_FK_ACT_LV 			--副卡活跃率（新增）DAY_N_FK_ACT_CNT/FK_N_DAY_CNT
+--V15.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND SF_FLG = 1 THEN ASSET_ROW_ID END)      DAY_SF_FK_CNT 	--其中收费满卡
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND LOC_VOL_FLG = 1 THEN ASSET_ROW_ID END) DAY_LOC_VOL_CNT   --其中区域流量卡
+--V16.0
+	  ,COUNT( CASE WHEN TYPE_NAME  IN ('副卡') AND ADD_DATE >= '${QuarterDate2}' AND ADD_DATE <= DATE('${TX_DATE}') AND CL_FLG = 1 AND QQW_FLG = 1 THEN ASSET_ROW_ID END) DAY_QQW_CNT  --其中开通亲情网	
+	FROM AREA_INFO                                                                                               
+   WHERE AREA_ID_LV8 IS NOT NULL                                                                                
+GROUP BY AREA_ID_LV8		
+;
+-----------------------------------------------------------新增移动用户：其中129及以上融合-----------------------------------------------------------------
+CREATE LOCAL TEMPORARY TABLE AREA_MIX_129_FK_ADD_Z ON COMMIT PRESERVE ROWS
+AS(
+SELECT   P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END IS_SINGLE_CUST
+		,'当日'   												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY 	 -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END)   MIX_DAY_ASSETUP2 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD = '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END 
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0
+;
+INSERT INTO AREA_MIX_129_FK_ADD_Z 
+SELECT P1.LATN_ID,P1.AREA_ID
+		,'总体'   												IS_SINGLE_CUST
+		,'当日'   												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY 	 -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END)   MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END)   MIX_DAY_ASSETUP2 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD = '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO AREA_MIX_129_FK_ADD_Z 
+SELECT P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END IS_SINGLE_CUST
+		,'当周' 												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY     -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END) MIX_DAY_ASSETUP2	 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD >= DATE('${TX_DATE}') - 6 AND DATE_CD <= '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END 
+;
+INSERT INTO AREA_MIX_129_FK_ADD_Z 
+SELECT P1.LATN_ID,P1.AREA_ID
+		,'总体' 												IS_SINGLE_CUST
+		,'当周' 												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY 	 -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END)   MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP2 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD >= DATE('${TX_DATE}') - 6 AND DATE_CD <= '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO AREA_MIX_129_FK_ADD_Z 
+SELECT P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END IS_SINGLE_CUST
+		,'当月' 												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY 	 -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP2 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD >= '${STMT_DATE}' AND DATE_CD <= '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END 
+;
+INSERT INTO AREA_MIX_129_FK_ADD_Z 
+SELECT P1.LATN_ID,P1.AREA_ID
+		,'总体' 												IS_SINGLE_CUST
+		,'当月' 												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY 	 -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP2 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD >= '${STMT_DATE}' AND DATE_CD <= '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO AREA_MIX_129_FK_ADD_Z 
+SELECT P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END IS_SINGLE_CUST
+		,'当季' 												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY 	 -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP2 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD >= '${QuarterDate2}' AND DATE_CD <= '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+		,CASE WHEN P1.CORP_USER_NAME IN ('个人客户','家庭客户') THEN '个人证件' ELSE '非个人证件' END 
+;
+INSERT INTO AREA_MIX_129_FK_ADD_Z 
+SELECT P1.LATN_ID,P1.AREA_ID
+		,'总体' 												IS_SINGLE_CUST
+		,'当季' 												DATE_TYPE
+		,COUNT(1) 												MIX_DAY 		 -- 其中129及以上融合-日均主卡新增
+		,SUM(MSU_NEW_FU_C_USER) 								MIX_FK_N_DAY 	 -- 其中129及以上融合-日均副卡新增
+		,SUM(MSU_TC_FK_USER) 									MIX_FK_DAY		 -- 其中129及以上融合-套均副卡分子
+		,0 MIX_FK_DAY_LV 														 --其中129及以上融合-套均副卡 SUM(MIX_FK_DAY)/SUM(MIX_DAY) 
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 1 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP1 -- 其中129及以上融合-一卡率分子
+		,0 MIX_DAY_ASSETUP1_LV 													 --其中129及以上融合-一卡率  SUM(MIX_DAY_ASSETUP1)/SUM(MIX_DAY)
+		,SUM(CASE WHEN MSU_TC_FK_USER >= 2 THEN 1 ELSE 0 END) 	MIX_DAY_ASSETUP2 --其中129及以上融合-满卡率分子
+		,0 MIX_DAY_ASSETUP2_LV 													 --其中129及以上融合-满卡率  SUM(MIX_DAY_ASSETUP2)/SUM(MIX_DAY)
+	FROM PRTVIEW.LST547389_DETIAL_MIX_PROM_211_DAY_Z P1 						 --211-省内-融合客户资产新增清单表
+   WHERE DATE_CD >= '${QuarterDate2}' AND DATE_CD <= '${TX_DATE}' 
+	 AND PRICE_DC IN ('[129,169)','[169,199)','[199,以上)')
+	 AND MSU_NEW_ZHU_C_USER = 1
+GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+-----------------------------------------------------------上月存量新增副卡在本月插卡活跃情况-----------------------------------------------------------------
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_A ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_A 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_A ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_A        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_A ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_A      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_A ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_A P1
+ LEFT JOIN VOL_C_A P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_A P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_B ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_B 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_B ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_B        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_B ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_B      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_B ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_B P1
+ LEFT JOIN VOL_C_B P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_B P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_C ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_C 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_C ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_C        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_C ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_C      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_C ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_C P1
+ LEFT JOIN VOL_C_C P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_C P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_D ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_D 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_D ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_D        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_D ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_D      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_D ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_D P1
+ LEFT JOIN VOL_C_D P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_D P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_E ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_E 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_E ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_E        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_E ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_E      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_E ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_E P1
+ LEFT JOIN VOL_C_E P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_E P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_F ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_F 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_F ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_F        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_F ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_F      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_F ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_F P1
+ LEFT JOIN VOL_C_F P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_F P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_G ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_G 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_G ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_G        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_G ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_G      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_G ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_G P1
+ LEFT JOIN VOL_C_G P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_G P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_H ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_H 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_H ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_H        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_H ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_H      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_H ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_H P1
+ LEFT JOIN VOL_C_H P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_H P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_I ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_I 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_I ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_I        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_I ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_I      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_I ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_I P1
+ LEFT JOIN VOL_C_I P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_I P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_J ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_J 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_J ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_J        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_J ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_J      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_J ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_J P1
+ LEFT JOIN VOL_C_J P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_J P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+--当月插卡情况
+CREATE LOCAL TEMPORARY TABLE PRT772_TER_LIST_MON_K ON COMMIT PRESERVE ROWS
+AS(
+  SELECT ASSET_ROW_ID
+		,MAX(CASE WHEN ESN_ID IS NOT NULL THEN 1 END) AS CK_FLG
+	FROM PRTDATA.PRT772_TER_LIST_K 
+   WHERE TO_CHAR(DATE_CD,'YYYYMM')='${CUR_MONTH}'
+GROUP BY ASSET_ROW_ID
+);
+--当月活跃情况 V14.0
+--流量（MB）
+CREATE LOCAL TEMPORARY TABLE VOL_C_K ON COMMIT PRESERVE ROWS
+AS(
+  SELECT P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+		,SUM(COALESCE(P1.UP_VOL,0)+COALESCE(P1.DOWN_VOL,0))/1024/1024 VOL   --M
+     FROM ZJBIC.NET_CDR_DAY_C_DS_K        P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+--语音
+CREATE LOCAL TEMPORARY TABLE CALL_C_K ON COMMIT PRESERVE ROWS
+AS(
+   SELECT  P1.BIL_ASSET_ROW_ID ASSET_ROW_ID
+          ,SUM(COALESCE(P1.DUR     ,0))/60 CALL_DUR          --单位：MIN   
+     FROM ZJBIC.NET_CDR_DAY_C_VS_K      P1 
+    WHERE P1.RATE_DT >= DATE('${STMT_DATE}') AND P1.RATE_DT  <= DATE('${TX_DATE}')  --本月1日到当日
+	  AND P1.CALL_TYPE_CD=0 AND P1.CDE_SRC_TABLE_ID='VS'
+ GROUP BY P1.BIL_ASSET_ROW_ID
+)ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ACT_K ON COMMIT PRESERVE ROWS
+AS(	
+    SELECT P1.ASSET_ROW_ID   
+		   ,MAX(CASE WHEN (COALESCE(P2.VOL,0) >500 OR COALESCE(P3.CALL_DUR,0) >30) THEN 1 ELSE 0 END) NUM_30 --移动活跃
+      FROM ZJBIC.OFR_MAIN_ASSET_N_HIST_K P1
+ LEFT JOIN VOL_C_K P2
+		ON P1.ASSET_ROW_ID = P2.ASSET_ROW_ID
+ LEFT JOIN CALL_C_K P3
+		ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID	
+     WHERE P1.START_DT<='${TX_DATE}' AND P1.END_DT>'${TX_DATE}'
+  GROUP BY P1.ASSET_ROW_ID
+ )ORDER BY ASSET_ROW_ID
+SEGMENTED BY HASH (ASSET_ROW_ID) ALL NODES KSAFE 0
+;
+
+--V16.0补加上上月、上上上月
+-- 上月存量副卡及上月新增副卡 
+CREATE LOCAL TEMPORARY TABLE T0_FK_T1_ACT_CK_Z ON COMMIT PRESERVE ROWS
+AS(
+	SELECT 
+			 P1.LATN_ID
+			,P1.AREA_ID
+			,P1.IS_SINGLE_CUST
+			--上月
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) 	T0_CL_FK_CNT 	 --上月存量副卡数
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) 	T0_N_FK_CNT  	 --上月新增副卡数
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) 	T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) 	T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) 	T0_CL_T1_ACT_CNT --有效活跃率分子 --存量当月活跃>=30
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) 	T0_N_T1_ACT_CNT  --有效活跃率分子 --新增当月活跃>=30
+			--上上月
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T00_CL_FK_CNT 	
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T00_N_FK_CNT  	
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T00_CL_T1_CK_CNT  
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T00_N_T1_CK_CNT   
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T00_CL_T1_ACT_CNT 
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T00_N_T1_ACT_CNT  
+			--上上上月
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T000_CL_FK_CNT 	
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T000_N_FK_CNT  	
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T000_CL_T1_CK_CNT  
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T000_N_T1_CK_CNT   
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T000_CL_T1_ACT_CNT 
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T000_N_T1_ACT_CNT  
+	 FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_K P1
+LEFT JOIN ACT_K P3
+	   ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_K P4
+	   ON P1.ASSET_ROW_ID = P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+	SELECT 
+			 P1.LATN_ID
+			,P1.AREA_ID
+			,'总体' IS_SINGLE_CUST 
+			--上月
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) 	T0_CL_FK_CNT 	 --上月存量副卡数
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) 	T0_N_FK_CNT  	 --上月新增副卡数
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) 	T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) 	T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) 	T0_CL_T1_ACT_CNT --有效活跃率分子 --存量当月活跃>=30
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-1) AND P1.DATE_CD <= DATE('${STMT_DATE}')-1 AND P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) 	T0_N_T1_ACT_CNT  --有效活跃率分子 --新增当月活跃>=30
+			--上上月
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T00_CL_FK_CNT 	
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T00_N_FK_CNT  	
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T00_CL_T1_CK_CNT  
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T00_N_T1_CK_CNT   
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T00_CL_T1_ACT_CNT 
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-2) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-1) AND P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T00_N_T1_ACT_CNT  
+			--上上上月
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T000_CL_FK_CNT 	
+			,COUNT(CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) 	  T000_N_FK_CNT  	
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T000_CL_T1_CK_CNT  
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T000_N_T1_CK_CNT   
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T000_CL_T1_ACT_CNT 
+			,SUM  (CASE WHEN P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= ADD_MONTHS(DATE('${STMT_DATE}')-1,-2) AND P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T000_N_T1_ACT_CNT  
+	 FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_K P1
+LEFT JOIN ACT_K P3
+	   ON P1.ASSET_ROW_ID = P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_K P4
+	   ON P1.ASSET_ROW_ID = P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= ADD_MONTHS('${STMT_DATE}',-3) AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_A P1
+LEFT JOIN ACT_A P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_A P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_A P1
+LEFT JOIN ACT_A P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_A P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_B P1
+LEFT JOIN ACT_B P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_B P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_B P1
+LEFT JOIN ACT_B P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_B P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_C P1
+LEFT JOIN ACT_C P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_C P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_C P1
+LEFT JOIN ACT_C P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_C P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_D P1
+LEFT JOIN ACT_D P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_D P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_D P1
+LEFT JOIN ACT_D P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_D P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_E P1
+LEFT JOIN ACT_E P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_E P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_E P1
+LEFT JOIN ACT_E P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_E P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_F P1
+LEFT JOIN ACT_F P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_F P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_F P1
+LEFT JOIN ACT_F P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_F P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_G P1
+LEFT JOIN ACT_G P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_G P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_G P1
+LEFT JOIN ACT_G P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_G P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_H P1
+LEFT JOIN ACT_H P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_H P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_H P1
+LEFT JOIN ACT_H P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_H P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_I P1
+LEFT JOIN ACT_I P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_I P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_I P1
+LEFT JOIN ACT_I P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_I P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT   --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_J P1
+LEFT JOIN ACT_J P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_J P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+	WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID,P1.IS_SINGLE_CUST
+; 
+INSERT INTO T0_FK_T1_ACT_CK_Z
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,'总体' IS_SINGLE_CUST 
+,COUNT( CASE WHEN P1.CL_FLG = 1 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_CL_FK_CNT 	 --上月存量副卡数
+,COUNT( CASE WHEN P1.CL_FLG = 0 THEN P1.ASSET_ROW_ID ELSE NULL END) T0_N_FK_CNT  	 --上月新增副卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_CL_T1_CK_CNT  --插卡率分子 --存量当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P4.CK_FLG,0) ELSE 0 END) T0_N_T1_CK_CNT 	 --插卡率分子 --新增当月有插卡数
+,SUM(CASE WHEN P1.CL_FLG = 1 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_CL_T1_ACT_CNT --高活率分子 --存量当月活跃>=30
+,SUM(CASE WHEN P1.CL_FLG = 0 THEN COALESCE(P3.NUM_30,0) ELSE 0 END) T0_N_T1_ACT_CNT  --高活率分子 --新增当月活跃>=30
+FROM CSROP.HEMS_A_MKXD_ZXTB_LIST_J P1
+LEFT JOIN ACT_J P3
+	   ON P1.ASSET_ROW_ID=P3.ASSET_ROW_ID 
+LEFT JOIN PRT772_TER_LIST_MON_J P4
+	   ON P1.ASSET_ROW_ID=P4.ASSET_ROW_ID 
+    WHERE P1.DATE_CD >= '${Before_First_Day_Yyyy_Mm_Dd}' AND P1.DATE_CD <= DATE('${STMT_DATE}') - 1 
+	  AND P1.TYPE_NAME IN ('副卡','亲情卡')
+ GROUP BY P1.LATN_ID,P1.AREA_ID
+;
+--129及以上融合、上月存量副卡在本月插卡活跃情况汇总
+CREATE LOCAL TEMPORARY TABLE ALL_CNT_0 ON COMMIT PRESERVE ROWS
+AS(
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,P1.DATE_TYPE  
+,P1.MIX_DAY
+,P1.MIX_FK_N_DAY
+,P1.MIX_FK_DAY
+,P1.MIX_DAY_ASSETUP1
+,P1.MIX_DAY_ASSETUP2 
+,0 T0_CL_FK_CNT 
+,0 T0_N_FK_CNT  
+,0 T0_CL_T1_CK_CNT 
+,0 T0_N_T1_CK_CNT 
+,0 T0_CL_T1_ACT_CNT
+,0 T0_N_T1_ACT_CNT
+--V16.0
+,0 T00_CL_FK_CNT 
+,0 T00_N_FK_CNT  
+,0 T00_CL_T1_CK_CNT 
+,0 T00_N_T1_CK_CNT 
+,0 T00_CL_T1_ACT_CNT
+,0 T00_N_T1_ACT_CNT 
+,0 T000_CL_FK_CNT 
+,0 T000_N_FK_CNT  
+,0 T000_CL_T1_CK_CNT 
+,0 T000_N_T1_CK_CNT 
+,0 T000_CL_T1_ACT_CNT
+,0 T000_N_T1_ACT_CNT  
+FROM AREA_MIX_129_FK_ADD_Z P1
+UNION ALL
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,'当日' DATE_TYPE  
+,0 MIX_DAY
+,0 MIX_FK_N_DAY
+,0 MIX_FK_DAY
+,0 MIX_DAY_ASSETUP1
+,0 MIX_DAY_ASSETUP2 
+,P1.T0_CL_FK_CNT 
+,P1.T0_N_FK_CNT  
+,P1.T0_CL_T1_CK_CNT 
+,P1.T0_N_T1_CK_CNT 
+,P1.T0_CL_T1_ACT_CNT
+,P1.T0_N_T1_ACT_CNT 
+--V16.0
+,P1.T00_CL_FK_CNT 
+,P1.T00_N_FK_CNT  
+,P1.T00_CL_T1_CK_CNT 
+,P1.T00_N_T1_CK_CNT 
+,P1.T00_CL_T1_ACT_CNT
+,P1.T00_N_T1_ACT_CNT 
+,P1.T000_CL_FK_CNT 
+,P1.T000_N_FK_CNT  
+,P1.T000_CL_T1_CK_CNT 
+,P1.T000_N_T1_CK_CNT 
+,P1.T000_CL_T1_ACT_CNT
+,P1.T000_N_T1_ACT_CNT
+FROM T0_FK_T1_ACT_CK_Z P1
+UNION ALL
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,'当周' DATE_TYPE  
+,0 MIX_DAY
+,0 MIX_FK_N_DAY
+,0 MIX_FK_DAY
+,0 MIX_DAY_ASSETUP1
+,0 MIX_DAY_ASSETUP2 
+,P1.T0_CL_FK_CNT 
+,P1.T0_N_FK_CNT  
+,P1.T0_CL_T1_CK_CNT 
+,P1.T0_N_T1_CK_CNT 
+,P1.T0_CL_T1_ACT_CNT
+,P1.T0_N_T1_ACT_CNT 
+--V16.0
+,P1.T00_CL_FK_CNT 
+,P1.T00_N_FK_CNT  
+,P1.T00_CL_T1_CK_CNT 
+,P1.T00_N_T1_CK_CNT 
+,P1.T00_CL_T1_ACT_CNT
+,P1.T00_N_T1_ACT_CNT 
+,P1.T000_CL_FK_CNT 
+,P1.T000_N_FK_CNT  
+,P1.T000_CL_T1_CK_CNT 
+,P1.T000_N_T1_CK_CNT 
+,P1.T000_CL_T1_ACT_CNT
+,P1.T000_N_T1_ACT_CNT
+FROM T0_FK_T1_ACT_CK_Z P1
+UNION ALL
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,'当月' DATE_TYPE  
+,0 MIX_DAY
+,0 MIX_FK_N_DAY
+,0 MIX_FK_DAY
+,0 MIX_DAY_ASSETUP1
+,0 MIX_DAY_ASSETUP2 
+,P1.T0_CL_FK_CNT 
+,P1.T0_N_FK_CNT  
+,P1.T0_CL_T1_CK_CNT 
+,P1.T0_N_T1_CK_CNT 
+,P1.T0_CL_T1_ACT_CNT
+,P1.T0_N_T1_ACT_CNT 
+--V16.0
+,P1.T00_CL_FK_CNT 
+,P1.T00_N_FK_CNT  
+,P1.T00_CL_T1_CK_CNT 
+,P1.T00_N_T1_CK_CNT 
+,P1.T00_CL_T1_ACT_CNT
+,P1.T00_N_T1_ACT_CNT 
+,P1.T000_CL_FK_CNT 
+,P1.T000_N_FK_CNT  
+,P1.T000_CL_T1_CK_CNT 
+,P1.T000_N_T1_CK_CNT 
+,P1.T000_CL_T1_ACT_CNT
+,P1.T000_N_T1_ACT_CNT
+FROM T0_FK_T1_ACT_CK_Z P1
+UNION ALL
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,'当季' DATE_TYPE  
+,0 MIX_DAY
+,0 MIX_FK_N_DAY
+,0 MIX_FK_DAY
+,0 MIX_DAY_ASSETUP1
+,0 MIX_DAY_ASSETUP2 
+,P1.T0_CL_FK_CNT 
+,P1.T0_N_FK_CNT  
+,P1.T0_CL_T1_CK_CNT 
+,P1.T0_N_T1_CK_CNT 
+,P1.T0_CL_T1_ACT_CNT
+,P1.T0_N_T1_ACT_CNT 
+--V16.0
+,P1.T00_CL_FK_CNT 
+,P1.T00_N_FK_CNT  
+,P1.T00_CL_T1_CK_CNT 
+,P1.T00_N_T1_CK_CNT 
+,P1.T00_CL_T1_ACT_CNT
+,P1.T00_N_T1_ACT_CNT 
+,P1.T000_CL_FK_CNT 
+,P1.T000_N_FK_CNT  
+,P1.T000_CL_T1_CK_CNT 
+,P1.T000_N_T1_CK_CNT 
+,P1.T000_CL_T1_ACT_CNT
+,P1.T000_N_T1_ACT_CNT 
+FROM T0_FK_T1_ACT_CK_Z P1
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE ALL_RESULT_CNT_0 ON COMMIT PRESERVE ROWS
+AS(
+SELECT 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,P1.DATE_TYPE
+,SUM(P1.MIX_DAY           ) MIX_DAY
+,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 
+FROM ALL_CNT_0 P1
+GROUP BY 
+P1.LATN_ID
+,P1.AREA_ID
+,P1.IS_SINGLE_CUST
+,P1.DATE_TYPE
+);
+-- 分层分级
+CREATE LOCAL TEMPORARY TABLE BASE_AREA_TREE_DEPT_Z_0 ON COMMIT PRESERVE ROWS
+AS(	
+SELECT 
+	P1.LATN_ID
+	,CASE WHEN P1.LATN_ID =10 AND P2.AREA_ID IS NULL THEN -71
+		  WHEN P1.LATN_ID =11 AND P2.AREA_ID IS NULL THEN -72
+		  WHEN P1.LATN_ID =12 AND P2.AREA_ID IS NULL THEN -73
+		  WHEN P1.LATN_ID =13 AND P2.AREA_ID IS NULL THEN -74
+		  WHEN P1.LATN_ID =14 AND P2.AREA_ID IS NULL THEN -75
+		  WHEN P1.LATN_ID =15 AND P2.AREA_ID IS NULL THEN -76
+		  WHEN P1.LATN_ID =16 AND P2.AREA_ID IS NULL THEN -77
+		  WHEN P1.LATN_ID =17 AND P2.AREA_ID IS NULL THEN -78
+		  WHEN P1.LATN_ID =18 AND P2.AREA_ID IS NULL THEN -79
+		  WHEN P1.LATN_ID =19 AND P2.AREA_ID IS NULL THEN -80
+		  WHEN P1.LATN_ID =20 AND P2.AREA_ID IS NULL THEN -70
+	ELSE P2.AREA_ID END  AREA_ID
+	,P1.IS_SINGLE_CUST
+	,P1.DATE_TYPE
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 	
+FROM ALL_RESULT_CNT_0 P1 
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z P2
+	   ON P1.AREA_ID = P2.AREA_ID 
+	  AND P1.LATN_ID = P2.LATN_ID
+ GROUP BY P1.LATN_ID
+	,CASE WHEN P1.LATN_ID =10 AND P2.AREA_ID IS NULL THEN -71
+		  WHEN P1.LATN_ID =11 AND P2.AREA_ID IS NULL THEN -72
+		  WHEN P1.LATN_ID =12 AND P2.AREA_ID IS NULL THEN -73
+		  WHEN P1.LATN_ID =13 AND P2.AREA_ID IS NULL THEN -74
+		  WHEN P1.LATN_ID =14 AND P2.AREA_ID IS NULL THEN -75
+		  WHEN P1.LATN_ID =15 AND P2.AREA_ID IS NULL THEN -76
+		  WHEN P1.LATN_ID =16 AND P2.AREA_ID IS NULL THEN -77
+		  WHEN P1.LATN_ID =17 AND P2.AREA_ID IS NULL THEN -78
+		  WHEN P1.LATN_ID =18 AND P2.AREA_ID IS NULL THEN -79
+		  WHEN P1.LATN_ID =19 AND P2.AREA_ID IS NULL THEN -80
+		  WHEN P1.LATN_ID =20 AND P2.AREA_ID IS NULL THEN -70
+	ELSE P2.AREA_ID END 
+	,P1.IS_SINGLE_CUST
+	,P1.DATE_TYPE
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0
+;
+CREATE LOCAL TEMPORARY TABLE BASE_AREA_TREE_DEPT_Z ON COMMIT PRESERVE ROWS
+AS(
+SELECT P1.LATN_ID
+	,P1.AREA_ID
+	,P1.IS_SINGLE_CUST
+	,P1.DATE_TYPE
+	,P1.MIX_DAY          
+	,P1.MIX_FK_N_DAY     
+	,P1.MIX_FK_DAY       
+	,P1.MIX_DAY_ASSETUP1 
+	,P1.MIX_DAY_ASSETUP2 
+	,P1.T0_CL_FK_CNT     
+	,P1.T0_N_FK_CNT      
+	,P1.T0_CL_T1_CK_CNT  
+	,P1.T0_N_T1_CK_CNT   
+	,P1.T0_CL_T1_ACT_CNT 
+	,P1.T0_N_T1_ACT_CNT 
+--V16.0
+	,P1.T00_CL_FK_CNT 
+	,P1.T00_N_FK_CNT  
+	,P1.T00_CL_T1_CK_CNT 
+	,P1.T00_N_T1_CK_CNT 
+	,P1.T00_CL_T1_ACT_CNT
+	,P1.T00_N_T1_ACT_CNT 
+	,P1.T000_CL_FK_CNT 
+	,P1.T000_N_FK_CNT  
+	,P1.T000_CL_T1_CK_CNT 
+	,P1.T000_N_T1_CK_CNT 
+	,P1.T000_CL_T1_ACT_CNT
+	,P1.T000_N_T1_ACT_CNT 	
+
+	,0            AREA_ID_LV1
+	,'浙江分公司' AREA_NAME_LV1
+	,P2.AREA_ID_LV2
+	,P2.AREA_NAME_LV2
+	,P2.AREA_ID_LV3
+	,P2.AREA_NAME_LV3
+	,P2.AREA_ID_LV4
+	,P2.AREA_NAME_LV4		  
+	,P2.AREA_ID_LV5
+	,P2.AREA_NAME_LV5 	 
+	,P2.AREA_ID_LV6
+	,P2.AREA_NAME_LV6 
+	,P2.AREA_ID_LV7
+	,P2.AREA_NAME_LV7
+	,P2.LOCAL_AREA_ID AREA_ID_LV8
+	,P2.AREA_NAME_LV8 
+FROM BASE_AREA_TREE_DEPT_Z_0 P1
+LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z P2
+	   ON P1.AREA_ID = P2.AREA_ID 
+	  AND P1.LATN_ID = P2.LATN_ID
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+;
+CREATE LOCAL TEMPORARY TABLE LAST_AREA_TREE_DEPT_Z ON COMMIT PRESERVE ROWS
+AS(
+SELECT AREA_ID_LV2     AREA_ID
+	,AREA_NAME_LV2   AREA_NAME
+	,2               AREA_LEVEL
+	,AREA_ID_LV1     PAR_AREA_ID
+	,AREA_NAME_LV1   PAR_AREA_NAME
+	,99 LATN_ID
+	,P1.DATE_TYPE
+	,P1.IS_SINGLE_CUST
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 	
+FROM BASE_AREA_TREE_DEPT_Z P1
+WHERE P1.AREA_ID_LV2 IS NOT NULL
+GROUP BY AREA_ID_LV2     
+		,AREA_NAME_LV2  
+		,AREA_ID_LV1
+		,AREA_NAME_LV1
+		,P1.DATE_TYPE
+		,P1.IS_SINGLE_CUST
+UNION ALL
+SELECT AREA_ID_LV3     AREA_ID
+	,AREA_NAME_LV3   AREA_NAME
+	,3               AREA_LEVEL
+	,AREA_ID_LV2     PAR_AREA_ID
+	,AREA_NAME_LV2   PAR_AREA_NAME
+	,P1.LATN_ID
+	,P1.DATE_TYPE
+	,P1.IS_SINGLE_CUST
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 	
+    FROM BASE_AREA_TREE_DEPT_Z P1
+WHERE P1.AREA_ID_LV3 IS NOT NULL
+GROUP BY AREA_ID_LV3     
+		,AREA_NAME_LV3 
+		,AREA_ID_LV2
+		,AREA_NAME_LV2	
+		,P1.LATN_ID,P1.DATE_TYPE,P1.IS_SINGLE_CUST
+UNION ALL
+SELECT AREA_ID_LV4     AREA_ID
+	,AREA_NAME_LV4   AREA_NAME
+	,4               AREA_LEVEL
+	,AREA_ID_LV3     PAR_AREA_ID
+	,AREA_NAME_LV3   PAR_AREA_NAME 
+	,P1.LATN_ID
+	,P1.DATE_TYPE
+	,P1.IS_SINGLE_CUST
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 	
+    FROM BASE_AREA_TREE_DEPT_Z P1
+WHERE P1.AREA_ID_LV4 IS NOT NULL
+GROUP BY AREA_ID_LV4     
+		,AREA_NAME_LV4 
+		,AREA_ID_LV3
+		,AREA_NAME_LV3
+		,P1.LATN_ID,P1.DATE_TYPE,P1.IS_SINGLE_CUST
+UNION ALL
+SELECT AREA_ID_LV5     AREA_ID
+	,AREA_NAME_LV5   AREA_NAME
+	,5               AREA_LEVEL
+	,AREA_ID_LV4     PAR_AREA_ID
+	,AREA_NAME_LV4   PAR_AREA_NAME	
+	,P1.LATN_ID
+	,P1.DATE_TYPE
+	,P1.IS_SINGLE_CUST
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 	
+    FROM BASE_AREA_TREE_DEPT_Z P1
+WHERE P1.AREA_ID_LV5 IS NOT NULL
+GROUP BY AREA_ID_LV5     
+		,AREA_NAME_LV5 
+		,AREA_ID_LV4
+		,AREA_NAME_LV4
+		,P1.LATN_ID,P1.DATE_TYPE,P1.IS_SINGLE_CUST
+UNION ALL
+SELECT AREA_ID_LV6     AREA_ID
+	,AREA_NAME_LV6   AREA_NAME
+	,6               AREA_LEVEL
+	,AREA_ID_LV5     PAR_AREA_ID
+	,AREA_NAME_LV5   PAR_AREA_NAME	
+	,P1.LATN_ID
+	,P1.DATE_TYPE
+	,P1.IS_SINGLE_CUST
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 	
+    FROM BASE_AREA_TREE_DEPT_Z P1
+WHERE P1.AREA_ID_LV6 IS NOT NULL
+GROUP BY AREA_ID_LV6    
+		,AREA_NAME_LV6 
+		,AREA_ID_LV5
+		,AREA_NAME_LV5
+		,P1.LATN_ID,P1.DATE_TYPE,P1.IS_SINGLE_CUST
+UNION ALL
+SELECT AREA_ID_LV7     AREA_ID
+	,AREA_NAME_LV7   AREA_NAME
+	,7               AREA_LEVEL
+	,AREA_ID_LV6     PAR_AREA_ID
+	,AREA_NAME_LV6   PAR_AREA_NAME	
+	,P1.LATN_ID
+	,P1.DATE_TYPE
+	,P1.IS_SINGLE_CUST
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 
+    FROM BASE_AREA_TREE_DEPT_Z P1
+WHERE P1.AREA_ID_LV7 IS NOT NULL
+GROUP BY AREA_ID_LV7    
+		,AREA_NAME_LV7
+		,AREA_ID_LV6
+		,AREA_NAME_LV6
+		,P1.LATN_ID,P1.DATE_TYPE,P1.IS_SINGLE_CUST
+UNION ALL
+SELECT AREA_ID_LV8     AREA_ID
+	,AREA_NAME_LV8   AREA_NAME
+	,8               AREA_LEVEL
+	,AREA_ID_LV7     PAR_AREA_ID
+	,AREA_NAME_LV7   PAR_AREA_NAME	
+	,P1.LATN_ID
+	,P1.DATE_TYPE
+	,P1.IS_SINGLE_CUST
+	,SUM(P1.MIX_DAY           ) MIX_DAY
+	,SUM(P1.MIX_FK_N_DAY      ) MIX_FK_N_DAY
+	,SUM(P1.MIX_FK_DAY        ) MIX_FK_DAY
+	,SUM(P1.MIX_DAY_ASSETUP1  ) MIX_DAY_ASSETUP1
+	,SUM(P1.MIX_DAY_ASSETUP2  ) MIX_DAY_ASSETUP2 
+	,SUM(P1.T0_CL_FK_CNT      ) T0_CL_FK_CNT 
+	,SUM(P1.T0_N_FK_CNT       ) T0_N_FK_CNT  
+	,SUM(P1.T0_CL_T1_CK_CNT   ) T0_CL_T1_CK_CNT 
+	,SUM(P1.T0_N_T1_CK_CNT    ) T0_N_T1_CK_CNT 
+	,SUM(P1.T0_CL_T1_ACT_CNT  ) T0_CL_T1_ACT_CNT
+	,SUM(P1.T0_N_T1_ACT_CNT   ) T0_N_T1_ACT_CNT 
+--V16.0
+	,SUM(P1.T00_CL_FK_CNT     ) T00_CL_FK_CNT 
+	,SUM(P1.T00_N_FK_CNT      ) T00_N_FK_CNT  
+	,SUM(P1.T00_CL_T1_CK_CNT  ) T00_CL_T1_CK_CNT 
+	,SUM(P1.T00_N_T1_CK_CNT   ) T00_N_T1_CK_CNT 
+	,SUM(P1.T00_CL_T1_ACT_CNT ) T00_CL_T1_ACT_CNT
+	,SUM(P1.T00_N_T1_ACT_CNT  ) T00_N_T1_ACT_CNT 
+	,SUM(P1.T000_CL_FK_CNT    ) T000_CL_FK_CNT 
+	,SUM(P1.T000_N_FK_CNT     ) T000_N_FK_CNT  
+	,SUM(P1.T000_CL_T1_CK_CNT ) T000_CL_T1_CK_CNT 
+	,SUM(P1.T000_N_T1_CK_CNT  ) T000_N_T1_CK_CNT 
+	,SUM(P1.T000_CL_T1_ACT_CNT) T000_CL_T1_ACT_CNT
+	,SUM(P1.T000_N_T1_ACT_CNT ) T000_N_T1_ACT_CNT 
+    FROM BASE_AREA_TREE_DEPT_Z P1
+WHERE P1.AREA_ID_LV8 IS NOT NULL
+GROUP BY AREA_ID_LV8    
+	    ,AREA_NAME_LV8
+	    ,AREA_ID_LV7
+	    ,AREA_NAME_LV7
+	    ,P1.LATN_ID,P1.DATE_TYPE,P1.IS_SINGLE_CUST
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+; 
+-----------------------------------------------------所有区域编码--------------------------------------------------------------------------------------
+CREATE LOCAL TEMPORARY TABLE AREA_ALL_Z ON COMMIT PRESERVE ROWS
+AS(
+SELECT AREA_ID,DATE_TYPE,IS_SINGLE_CUST FROM LAST_AREA_TREE_DEPT_Z
+UNION
+SELECT AREA_ID,DATE_TYPE,IS_SINGLE_CUST FROM  AREA_DEP_INFO
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+;
+--上层区域
+CREATE LOCAL TEMPORARY TABLE BASE_CUB_STD_MKTOL_AREA_TREE_DEPT_Z ON COMMIT PRESERVE ROWS
+AS(	
+SELECT P1.STD_AREA_LVL_ID AREA_ID
+	  ,P1.STD_AREA_LVL_NAME AREA_NAME
+	  ,P1.LATN_ID
+	  ,P1.PARENT_STD_AREA_LVL_ID PAR_AREA_ID
+	  ,CASE WHEN P2.STD_AREA_LVL_NAME IS NULL THEN '浙江分公司' ELSE P2.STD_AREA_LVL_NAME END PAR_AREA_NAME
+	  ,P1.LVL_ID 
+	 FROM DMNVIEW.CUB_STD_MKTOL_AREA_TREE_DEPT_Z P1
+LEFT JOIN DMNVIEW.CUB_STD_MKTOL_AREA_TREE_DEPT_Z P2
+	   ON P1.PARENT_STD_AREA_LVL_ID = P2.STD_AREA_LVL_ID
+    WHERE P1.LVL_ID IN (2,3,4,5,6,7,8)
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 1
+;
+CREATE LOCAL TEMPORARY TABLE LVL_LV_CNT_Z ON COMMIT PRESERVE ROWS
+AS(	
+SELECT P1.AREA_ID
+,PS.AREA_NAME     
+,PS.LATN_ID       
+,PS.PAR_AREA_ID   
+,PS.PAR_AREA_NAME 
+,PS.LVL_ID  
+,'${TX_DATE}'  DATE_CD
+,P1.DATE_TYPE
+,P1.IS_SINGLE_CUST
+,COALESCE(P3.DAY_SUM_MK_CNT        ,0)  DAY_SUM_MK_CNT 	---全量-日均满卡
+,CASE WHEN COALESCE(P5.VALUE_NBR,0) = 0 THEN 0 ELSE COALESCE(DAY_SUM_MK_CNT,0)/COALESCE(P5.VALUE_NBR,0) END DAY_SUM_MK_LV --全量-满卡完成率 
+,RANK()OVER(PARTITION BY PS.PAR_AREA_ID ORDER BY (CASE WHEN COALESCE(P5.VALUE_NBR,0) = 0 THEN 0 ELSE COALESCE(DAY_SUM_MK_CNT,0)/COALESCE(P5.VALUE_NBR,0) END) DESC) DAY_SUM_MK_LV_RANK --全量-满卡排名
+,COALESCE(P3.DAY_ALL_CNT           ,0)  DAY_ALL_CNT 	--存量-日均满卡数（含亲情卡）
+,CASE WHEN COALESCE(P6.VALUE_NBR,0) = 0 THEN 0 ELSE COALESCE(DAY_ALL_CNT,0)/COALESCE(P6.VALUE_NBR,0) END DAY_ALL_LV --存量-满卡完成率（含亲情卡） 
+,RANK()OVER(PARTITION BY PS.PAR_AREA_ID ORDER BY (CASE WHEN COALESCE(P6.VALUE_NBR,0) = 0 THEN 0 ELSE COALESCE(DAY_ALL_CNT,0)/COALESCE(P6.VALUE_NBR,0) END) DESC) DAY_ALL_LV_RANK --存量-满卡排名（含亲情卡）
+,COALESCE(P3.DAY_ALL_ZQ_CNT ,0) 		DAY_ALL_ZQ_CNT	--其中-政企渠道（含亲情卡）
+,COALESCE(P3.DAY_ALL_ST_CNT ,0) 		DAY_ALL_ST_CNT	--其中-实体渠道（含亲情卡）
+,COALESCE(P3.DAY_ALL_DZ_CNT ,0) 		DAY_ALL_DZ_CNT	--其中-电子渠道（含亲情卡）
+,COALESCE(P3.DAY_ALL_XJ_CNT ,0) 		DAY_ALL_XJ_CNT	--其中-电子渠道-星级（含亲情卡） --新增
+,COALESCE(P3.DAY_FK_CNT ,0) 			DAY_FK_CNT		--存量-日均满卡
+,COALESCE(P3.DAY_FK_QYK_CNT,0) 			DAY_FK_QYK_CNT	--其中权益卡
+,COALESCE(P3.DAY_FK_ZDK_CNT,0) 			DAY_FK_ZDK_CNT 	--其中终端包
+,COALESCE(P3.MK_FBD_DAY   ,0) 			MK_FBD_DAY  	--其中翻倍兑
+,COALESCE(P3.DAY_QQK_CNT  ,0) 			DAY_QQK_CNT 	--亲情卡日均新增
+,COALESCE(P3.FK_N_DAY_CNT ,0) 			FK_N_DAY_CNT	---新增移动用户-日均满卡 
+,COALESCE(P2.MIX_DAY           ,0) 		MIX_DAY 		--其中129及以上融合-日均主卡新增
+,COALESCE(P2.MIX_FK_N_DAY      ,0) 		MIX_FK_N_DAY 	--其中129及以上融合-日均副卡新增
+,COALESCE(P2.MIX_FK_DAY        ,0) 		MIX_FK_DAY
+,CASE WHEN COALESCE(P2.MIX_DAY,0) = 0 THEN 0 ELSE COALESCE(P2.MIX_FK_DAY,0)/COALESCE(P2.MIX_DAY,0) END MIX_FK_DAY_LV --其中129及以上融合-套均副卡
+,COALESCE(P2.MIX_DAY_ASSETUP1  ,0) 		MIX_DAY_ASSETUP1
+,CASE WHEN COALESCE(P2.MIX_DAY,0) = 0 THEN 0 ELSE COALESCE(P2.MIX_DAY_ASSETUP1,0)/COALESCE(P2.MIX_DAY,0) END MIX_DAY_ASSETUP1_LV --其中129及以上融合-一卡率
+,COALESCE(P2.MIX_DAY_ASSETUP2  ,0) 		MIX_DAY_ASSETUP2 
+,CASE WHEN COALESCE(P2.MIX_DAY,0) = 0 THEN 0 ELSE COALESCE(P2.MIX_DAY_ASSETUP2,0)/COALESCE(P2.MIX_DAY,0) END MIX_DAY_ASSETUP2_LV --其中129及以上融合-满卡率
+,COALESCE(P3.DAY_SUM_FK_ACT_CNT,0) 		DAY_SUM_FK_ACT_CNT
+,CASE WHEN COALESCE(P3.DAY_SUM_MK_CNT,0) = 0 THEN 0 ELSE COALESCE(P3.DAY_SUM_FK_ACT_CNT,0)/COALESCE(P3.DAY_SUM_MK_CNT,0) END  DAY_SUM_FK_ACT_LV --副卡活跃率（全量） 
+,COALESCE(P3.DAY_CL_FK_ACT_CNT,0) 		DAY_CL_FK_ACT_CNT
+,CASE WHEN COALESCE(P3.DAY_ALL_CNT,0) = 0 THEN 0 ELSE COALESCE(P3.DAY_CL_FK_ACT_CNT,0)/COALESCE(P3.DAY_ALL_CNT,0) END DAY_CL_FK_ACT_LV --副卡活跃率（存量） 
+,COALESCE(P3.DAY_N_FK_ACT_CNT,0) 		DAY_N_FK_ACT_CNT
+,CASE WHEN COALESCE(P3.FK_N_DAY_CNT,0) = 0 THEN 0 ELSE COALESCE(P3.DAY_N_FK_ACT_CNT,0)/COALESCE(P3.FK_N_DAY_CNT,0) END DAY_N_FK_ACT_LV --副卡活跃率（新增） 
+,COALESCE(P2.T0_CL_FK_CNT      ,0) 		T0_CL_FK_CNT 	--上月存量副卡数 需要新增字段
+,COALESCE(P2.T0_CL_T1_CK_CNT   ,0) 		T0_CL_T1_CK_CNT --插卡率分子 --存量当月有插卡数 需要新增字段
+,CASE WHEN COALESCE(T0_CL_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T0_CL_T1_CK_CNT,0)/COALESCE(T0_CL_FK_CNT,0) END T0_CL_T1_CK_LV --存量当月插卡率 
+,COALESCE(P2.T0_CL_T1_ACT_CNT  ,0) 		T0_CL_T1_ACT_CNT--高活率分子 --存量当月活跃>=30
+,CASE WHEN COALESCE(T0_CL_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T0_CL_T1_ACT_CNT,0)/COALESCE(T0_CL_FK_CNT,0) END T0_CL_T1_ACT_LV --存量当月高活率 
+,COALESCE(P2.T0_N_FK_CNT       ,0) 		T0_N_FK_CNT   	--上月新增副卡数 需要新增字段
+,COALESCE(P2.T0_N_T1_CK_CNT    ,0) 		T0_N_T1_CK_CNT  --插卡率分子 --新增当月有插卡数
+,CASE WHEN COALESCE(T0_N_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T0_N_T1_CK_CNT,0)/COALESCE(T0_N_FK_CNT,0) END T0_N_T1_CK_LV --新增当月插卡率 
+,COALESCE(P2.T0_N_T1_ACT_CNT   ,0) 		T0_N_T1_ACT_CNT --高活率分子 --新增当月活跃>=30
+,CASE WHEN COALESCE(T0_N_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T0_N_T1_ACT_CNT,0)/COALESCE(T0_N_FK_CNT,0) END T0_N_T1_ACT_LV --新增当月高活率 
+--V15.0
+,COALESCE(P3.DAY_SF_FK_CNT ,0) 			DAY_SF_FK_CNT		--其中收费满卡
+,COALESCE(P3.DAY_LOC_VOL_CNT ,0) 		DAY_LOC_VOL_CNT		--其中区域流量卡
+--V16.0
+,COALESCE(P2.T00_CL_FK_CNT      ,0) 		T00_CL_FK_CNT 	
+,COALESCE(P2.T00_CL_T1_CK_CNT   ,0) 		T00_CL_T1_CK_CNT 
+,CASE WHEN COALESCE(T00_CL_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T00_CL_T1_CK_CNT,0)/COALESCE(T00_CL_FK_CNT,0) END T00_CL_T1_CK_LV 
+,COALESCE(P2.T00_CL_T1_ACT_CNT  ,0) 		T00_CL_T1_ACT_CNT
+,CASE WHEN COALESCE(T00_CL_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T00_CL_T1_ACT_CNT,0)/COALESCE(T00_CL_FK_CNT,0) END T00_CL_T1_ACT_LV 
+,COALESCE(P2.T00_N_FK_CNT       ,0) 		T00_N_FK_CNT   	
+,COALESCE(P2.T00_N_T1_CK_CNT    ,0) 		T00_N_T1_CK_CNT  
+,CASE WHEN COALESCE(T00_N_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T00_N_T1_CK_CNT,0)/COALESCE(T00_N_FK_CNT,0) END T00_N_T1_CK_LV 
+,COALESCE(P2.T00_N_T1_ACT_CNT   ,0) 		T00_N_T1_ACT_CNT 
+,CASE WHEN COALESCE(T00_N_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T00_N_T1_ACT_CNT,0)/COALESCE(T00_N_FK_CNT,0) END T00_N_T1_ACT_LV 
+,COALESCE(P2.T000_CL_FK_CNT      ,0) 		T000_CL_FK_CNT 	
+,COALESCE(P2.T000_CL_T1_CK_CNT   ,0) 		T000_CL_T1_CK_CNT 
+,CASE WHEN COALESCE(T000_CL_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T000_CL_T1_CK_CNT,0)/COALESCE(T000_CL_FK_CNT,0) END T000_CL_T1_CK_LV 
+,COALESCE(P2.T000_CL_T1_ACT_CNT  ,0) 		T000_CL_T1_ACT_CNT
+,CASE WHEN COALESCE(T000_CL_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T000_CL_T1_ACT_CNT,0)/COALESCE(T000_CL_FK_CNT,0) END T000_CL_T1_ACT_LV 
+,COALESCE(P2.T000_N_FK_CNT       ,0) 		T000_N_FK_CNT   	
+,COALESCE(P2.T000_N_T1_CK_CNT    ,0) 		T000_N_T1_CK_CNT  
+,CASE WHEN COALESCE(T000_N_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T000_N_T1_CK_CNT,0)/COALESCE(T000_N_FK_CNT,0) END T000_N_T1_CK_LV 
+,COALESCE(P2.T000_N_T1_ACT_CNT   ,0) 		T000_N_T1_ACT_CNT 
+,CASE WHEN COALESCE(T000_N_FK_CNT,0) = 0 THEN 0 ELSE COALESCE(T000_N_T1_ACT_CNT,0)/COALESCE(T000_N_FK_CNT,0) END T000_N_T1_ACT_LV 
+,COALESCE(P3.DAY_QQW_CNT ,0) 			DAY_QQW_CNT		--其中开通亲情网
+FROM AREA_ALL_Z P1
+ LEFT JOIN LAST_AREA_TREE_DEPT_Z P2 
+		ON P1.AREA_ID = P2.AREA_ID AND P1.DATE_TYPE = P2.DATE_TYPE AND P1.IS_SINGLE_CUST = P2.IS_SINGLE_CUST
+ LEFT JOIN AREA_DEP_INFO P3 
+		ON P1.AREA_ID = P3.AREA_ID AND P1.DATE_TYPE = P3.DATE_TYPE AND P1.IS_SINGLE_CUST = P3.IS_SINGLE_CUST
+ LEFT JOIN BASE_CUB_STD_MKTOL_AREA_TREE_DEPT_Z PS
+		ON P1.AREA_ID = PS.AREA_ID
+ LEFT JOIN CSROP.HEMS_A_MKT_2020_FIN_AMT_MB_Z P5
+		ON P1.AREA_ID = P5.AREA_ID AND P5.ZBX_FLG = '全量满卡日均'
+ LEFT JOIN CSROP.HEMS_A_MKT_2020_FIN_AMT_MB_Z P6
+		ON P1.AREA_ID = P6.AREA_ID AND P6.ZBX_FLG = '满卡日均' --存量满卡目标值
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+; 
+--量修改为日均
+CREATE LOCAL TEMPORARY TABLE LAST_LVL_LV_CNT_Z ON COMMIT PRESERVE ROWS
+AS(	
+SELECT P1.AREA_ID
+,P1.AREA_NAME     
+,P1.LATN_ID       
+,P1.PAR_AREA_ID   
+,P1.PAR_AREA_NAME 
+,P1.LVL_ID  
+,'${TX_DATE}'  DATE_CD
+,P1.DATE_TYPE
+,P1.IS_SINGLE_CUST
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_SUM_MK_CNT WHEN DATE_TYPE = '当周' THEN DAY_SUM_MK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_SUM_MK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_SUM_MK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_SUM_MK_CNT 
+,CASE WHEN P1.IS_SINGLE_CUST <> '总体' OR P5.VALUE_NBR IS NULL THEN NULL ELSE 
+(CASE WHEN COALESCE(P5.VALUE_NBR,0) = 0 THEN 0 ELSE (CASE WHEN DATE_TYPE = '当日' THEN DAY_SUM_MK_CNT WHEN DATE_TYPE = '当周' THEN DAY_SUM_MK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_SUM_MK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_SUM_MK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END)/COALESCE(P5.VALUE_NBR,0) END ) END DAY_SUM_MK_LV --全量-满卡完成率 
+,CASE WHEN P1.IS_SINGLE_CUST <> '总体' OR P5.VALUE_NBR IS NULL THEN NULL ELSE (RANK()OVER(PARTITION BY P1.PAR_AREA_ID,IS_SINGLE_CUST,DATE_TYPE ORDER BY (CASE WHEN COALESCE(P5.VALUE_NBR,0) = 0 THEN 0 ELSE (CASE WHEN DATE_TYPE = '当日' THEN DAY_SUM_MK_CNT WHEN DATE_TYPE = '当周' THEN DAY_SUM_MK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_SUM_MK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_SUM_MK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END)/COALESCE(P5.VALUE_NBR,0) END) DESC) ) END DAY_SUM_MK_LV_RANK --全量-满卡排名
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_ALL_CNT WHEN DATE_TYPE = '当周' THEN DAY_ALL_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_ALL_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_ALL_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_ALL_CNT 
+,CASE WHEN P1.IS_SINGLE_CUST <> '总体' OR P6.VALUE_NBR IS NULL THEN NULL ELSE (CASE WHEN COALESCE(P6.VALUE_NBR,0) = 0 THEN 0 ELSE (CASE WHEN DATE_TYPE = '当日' THEN DAY_ALL_CNT WHEN DATE_TYPE = '当周' THEN DAY_ALL_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_ALL_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_ALL_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END)/COALESCE(P6.VALUE_NBR,0) END )END DAY_ALL_LV --存量-满卡完成率（含亲情卡） 
+,CASE WHEN P1.IS_SINGLE_CUST <> '总体' OR P6.VALUE_NBR IS NULL THEN NULL ELSE (RANK()OVER(PARTITION BY P1.PAR_AREA_ID,IS_SINGLE_CUST,DATE_TYPE ORDER BY (CASE WHEN COALESCE(P6.VALUE_NBR,0) = 0 THEN 0 ELSE (CASE WHEN DATE_TYPE = '当日' THEN DAY_ALL_CNT WHEN DATE_TYPE = '当周' THEN DAY_ALL_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_ALL_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_ALL_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END)/COALESCE(P6.VALUE_NBR,0) END) DESC) )END DAY_ALL_LV_RANK --存量-满卡排名（含亲情卡）
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_ALL_ZQ_CNT WHEN DATE_TYPE = '当周' THEN DAY_ALL_ZQ_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_ALL_ZQ_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_ALL_ZQ_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_ALL_ZQ_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_ALL_ST_CNT WHEN DATE_TYPE = '当周' THEN DAY_ALL_ST_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_ALL_ST_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_ALL_ST_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_ALL_ST_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_ALL_DZ_CNT WHEN DATE_TYPE = '当周' THEN DAY_ALL_DZ_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_ALL_DZ_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_ALL_DZ_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_ALL_DZ_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_ALL_XJ_CNT WHEN DATE_TYPE = '当周' THEN DAY_ALL_XJ_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_ALL_XJ_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_ALL_XJ_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_ALL_XJ_CNT --其中-电子渠道-星级（含亲情卡） --新增
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_FK_CNT WHEN DATE_TYPE = '当周' THEN DAY_FK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_FK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_FK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_FK_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_FK_QYK_CNT WHEN DATE_TYPE = '当周' THEN DAY_FK_QYK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_FK_QYK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_FK_QYK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_FK_QYK_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_FK_ZDK_CNT WHEN DATE_TYPE = '当周' THEN DAY_FK_ZDK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_FK_ZDK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_FK_ZDK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_FK_ZDK_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN MK_FBD_DAY WHEN DATE_TYPE = '当周' THEN MK_FBD_DAY/7 WHEN DATE_TYPE = '当月' THEN MK_FBD_DAY/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN MK_FBD_DAY/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END MK_FBD_DAY 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_QQK_CNT WHEN DATE_TYPE = '当周' THEN DAY_QQK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_QQK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_QQK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_QQK_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN FK_N_DAY_CNT WHEN DATE_TYPE = '当周' THEN FK_N_DAY_CNT/7 WHEN DATE_TYPE = '当月' THEN FK_N_DAY_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN FK_N_DAY_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END FK_N_DAY_CNT 
+,CASE WHEN DATE_TYPE = '当日' THEN mix_day WHEN DATE_TYPE = '当周' THEN mix_day/7 WHEN DATE_TYPE = '当月' THEN mix_day/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN mix_day/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END mix_day 
+,CASE WHEN DATE_TYPE = '当日' THEN mix_fk_n_day WHEN DATE_TYPE = '当周' THEN mix_fk_n_day/7 WHEN DATE_TYPE = '当月' THEN mix_fk_n_day/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN mix_fk_n_day/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END mix_fk_n_day 
+,CASE WHEN DATE_TYPE = '当日' THEN mix_fk_day WHEN DATE_TYPE = '当周' THEN mix_fk_day/7 WHEN DATE_TYPE = '当月' THEN mix_fk_day/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN mix_fk_day/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END mix_fk_day 
+,MIX_FK_DAY_LV --其中129及以上融合-套均副卡
+,CASE WHEN DATE_TYPE = '当日' THEN MIX_DAY_ASSETUP1 WHEN DATE_TYPE = '当周' THEN MIX_DAY_ASSETUP1/7 WHEN DATE_TYPE = '当月' THEN MIX_DAY_ASSETUP1/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN MIX_DAY_ASSETUP1/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END MIX_DAY_ASSETUP1 
+,MIX_DAY_ASSETUP1_LV --其中129及以上融合-一卡率
+,CASE WHEN DATE_TYPE = '当日' THEN MIX_DAY_ASSETUP2 WHEN DATE_TYPE = '当周' THEN MIX_DAY_ASSETUP2/7 WHEN DATE_TYPE = '当月' THEN MIX_DAY_ASSETUP2/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN MIX_DAY_ASSETUP2/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END MIX_DAY_ASSETUP2 
+,MIX_DAY_ASSETUP2_LV --其中129及以上融合-满卡率
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_SUM_FK_ACT_CNT WHEN DATE_TYPE = '当周' THEN DAY_SUM_FK_ACT_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_SUM_FK_ACT_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_SUM_FK_ACT_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_SUM_FK_ACT_CNT 
+,DAY_SUM_FK_ACT_LV --副卡活跃率（全量） 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_CL_FK_ACT_CNT WHEN DATE_TYPE = '当周' THEN DAY_CL_FK_ACT_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_CL_FK_ACT_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_CL_FK_ACT_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_CL_FK_ACT_CNT 
+,DAY_CL_FK_ACT_LV --副卡活跃率（存量） 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_N_FK_ACT_CNT WHEN DATE_TYPE = '当周' THEN DAY_N_FK_ACT_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_N_FK_ACT_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_N_FK_ACT_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_N_FK_ACT_CNT 
+,DAY_N_FK_ACT_LV --副卡活跃率（新增） 
+,T0_CL_FK_CNT 
+,T0_CL_T1_CK_CNT
+,T0_CL_T1_CK_LV --存量当月插卡率 
+,T0_CL_T1_ACT_CNT
+,T0_CL_T1_ACT_LV --存量当月高活率 
+,T0_N_FK_CNT
+,T0_N_T1_CK_CNT
+,T0_N_T1_CK_LV --新增当月插卡率 
+,T0_N_T1_ACT_CNT
+,T0_N_T1_ACT_LV --新增当月高活率 
+--V15.0
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_SF_FK_CNT WHEN DATE_TYPE = '当周' THEN DAY_SF_FK_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_SF_FK_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_SF_FK_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_SF_FK_CNT
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_LOC_VOL_CNT WHEN DATE_TYPE = '当周' THEN DAY_LOC_VOL_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_LOC_VOL_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_LOC_VOL_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_LOC_VOL_CNT
+--V16.0
+,T00_CL_FK_CNT 
+,T00_CL_T1_CK_CNT
+,T00_CL_T1_CK_LV 
+,T00_CL_T1_ACT_CNT
+,T00_CL_T1_ACT_LV 
+,T00_N_FK_CNT
+,T00_N_T1_CK_CNT
+,T00_N_T1_CK_LV 
+,T00_N_T1_ACT_CNT
+,T00_N_T1_ACT_LV 
+,T000_CL_FK_CNT 
+,T000_CL_T1_CK_CNT
+,T000_CL_T1_CK_LV 
+,T000_CL_T1_ACT_CNT
+,T000_CL_T1_ACT_LV 
+,T000_N_FK_CNT
+,T000_N_T1_CK_CNT
+,T000_N_T1_CK_LV 
+,T000_N_T1_ACT_CNT
+,T000_N_T1_ACT_LV 
+,CASE WHEN DATE_TYPE = '当日' THEN DAY_QQW_CNT WHEN DATE_TYPE = '当周' THEN DAY_QQW_CNT/7 WHEN DATE_TYPE = '当月' THEN DAY_QQW_CNT/(DATE('${TX_DATE}')-DATE('${STMT_DATE}')+1) WHEN DATE_TYPE = '当季' THEN DAY_QQW_CNT/(DATE('${TX_DATE}')-DATE('${QuarterDate2}')+1) ELSE 0 END DAY_QQW_CNT
+
+FROM LVL_LV_CNT_Z P1
+LEFT JOIN CSROP.HEMS_A_MKT_2020_FIN_AMT_MB_Z P5
+	   ON P1.AREA_ID = P5.AREA_ID AND P5.ZBX_FLG = '全量满卡日均'
+LEFT JOIN CSROP.HEMS_A_MKT_2020_FIN_AMT_MB_Z P6
+	   ON P1.AREA_ID = P6.AREA_ID AND P6.ZBX_FLG = '满卡日均' --存量满卡目标值
+)ORDER BY AREA_ID
+SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0 
+; 
+DELETE FROM CSRTEST.HEMS_R_MKXD_ZXTB_NEW_DAY_Z_ZYM
+	  WHERE DATE_CD = DATE('${TX_DATE}')
+;
+INSERT INTO CSRTEST.HEMS_R_MKXD_ZXTB_NEW_DAY_Z_ZYM
+(
+AREA_ID                 
+,AREA_NAME     			
+,LATN_ID                
+,PAR_AREA_ID            
+,PAR_AREA_NAME          
+,DATE_CD                
+,DATE_TYPE              
+,IS_SINGLE_CUST			
+,LVL_ID					
+,DAY_SUM_MK_CNT         
+,DAY_SUM_MK_LV          
+,DAY_SUM_MK_LV_RANK     
+,DAY_ALL_CNT            
+,DAY_ALL_LV             
+,DAY_ALL_LV_RANK        
+,DAY_ALL_ZQ_CNT         
+,DAY_ALL_ST_CNT         
+,DAY_ALL_DZ_CNT       
+,DAY_ALL_XJ_CNT  
+,DAY_FK_CNT             
+,DAY_FK_QYK_CNT         
+,DAY_FK_ZDK_CNT         
+,MK_FBD_DAY             
+,DAY_QQK_CNT            
+,FK_N_DAY_CNT           
+,MIX_DAY                
+,MIX_FK_N_DAY           
+,MIX_FK_DAY_LV          
+,MIX_DAY_ASSETUP1_LV    
+,MIX_DAY_ASSETUP2_LV    
+,DAY_SUM_FK_ACT_LV      
+,DAY_N_FK_ACT_LV        
+,DAY_CL_FK_ACT_LV       
+,T0_CL_FK_CNT           
+,T0_CL_T1_CK_CNT		
+,T0_CL_T1_CK_LV         
+,T0_CL_T1_ACT_CNT		
+,T0_CL_T1_ACT_LV        
+,T0_N_FK_CNT            
+,T0_N_T1_CK_CNT			
+,T0_N_T1_CK_LV          
+,T0_N_T1_ACT_CNT		
+,T0_N_T1_ACT_LV	
+--V15.0
+,DAY_SF_FK_CNT
+,DAY_LOC_VOL_CNT
+--V16.0
+,T00_CL_FK_CNT 
+,T00_CL_T1_CK_CNT
+,T00_CL_T1_CK_LV 
+,T00_CL_T1_ACT_CNT
+,T00_CL_T1_ACT_LV 
+,T00_N_FK_CNT
+,T00_N_T1_CK_CNT
+,T00_N_T1_CK_LV 
+,T00_N_T1_ACT_CNT
+,T00_N_T1_ACT_LV 
+,T000_CL_FK_CNT 
+,T000_CL_T1_CK_CNT
+,T000_CL_T1_CK_LV 
+,T000_CL_T1_ACT_CNT
+,T000_CL_T1_ACT_LV 
+,T000_N_FK_CNT
+,T000_N_T1_CK_CNT
+,T000_N_T1_CK_LV 
+,T000_N_T1_ACT_CNT
+,T000_N_T1_ACT_LV 
+,DAY_QQW_CNT		
+)
+SELECT 
+AREA_ID                 
+,AREA_NAME     			
+,LATN_ID                
+,PAR_AREA_ID            
+,PAR_AREA_NAME          
+,DATE(DATE_CD)                
+,DATE_TYPE              
+,IS_SINGLE_CUST			
+,LVL_ID					
+,DAY_SUM_MK_CNT         
+,DAY_SUM_MK_LV          
+,DAY_SUM_MK_LV_RANK     
+,DAY_ALL_CNT            
+,DAY_ALL_LV             
+,DAY_ALL_LV_RANK        
+,DAY_ALL_ZQ_CNT         
+,DAY_ALL_ST_CNT         
+,DAY_ALL_DZ_CNT      
+,DAY_ALL_XJ_CNT   
+,DAY_FK_CNT             
+,DAY_FK_QYK_CNT         
+,DAY_FK_ZDK_CNT         
+,MK_FBD_DAY             
+,DAY_QQK_CNT            
+,FK_N_DAY_CNT           
+,MIX_DAY                
+,MIX_FK_N_DAY           
+,MIX_FK_DAY_LV          
+,MIX_DAY_ASSETUP1_LV    
+,MIX_DAY_ASSETUP2_LV    
+,DAY_SUM_FK_ACT_LV      
+,DAY_N_FK_ACT_LV        
+,DAY_CL_FK_ACT_LV       
+,T0_CL_FK_CNT           
+,T0_CL_T1_CK_CNT		
+,T0_CL_T1_CK_LV         
+,T0_CL_T1_ACT_CNT		
+,T0_CL_T1_ACT_LV        
+,T0_N_FK_CNT            
+,T0_N_T1_CK_CNT			
+,T0_N_T1_CK_LV          
+,T0_N_T1_ACT_CNT		
+,T0_N_T1_ACT_LV	
+--V15.0
+,DAY_SF_FK_CNT
+,DAY_LOC_VOL_CNT	
+--V16.0
+,T00_CL_FK_CNT 
+,T00_CL_T1_CK_CNT
+,T00_CL_T1_CK_LV 
+,T00_CL_T1_ACT_CNT
+,T00_CL_T1_ACT_LV 
+,T00_N_FK_CNT
+,T00_N_T1_CK_CNT
+,T00_N_T1_CK_LV 
+,T00_N_T1_ACT_CNT
+,T00_N_T1_ACT_LV 
+,T000_CL_FK_CNT 
+,T000_CL_T1_CK_CNT
+,T000_CL_T1_CK_LV 
+,T000_CL_T1_ACT_CNT
+,T000_CL_T1_ACT_LV 
+,T000_N_FK_CNT
+,T000_N_T1_CK_CNT
+,T000_N_T1_CK_LV 
+,T000_N_T1_ACT_CNT
+,T000_N_T1_ACT_LV 
+,DAY_QQW_CNT	
+FROM LAST_LVL_LV_CNT_Z
+;
+
+------SQL语句填写结束
+----------------------------------------------------------------------------------------------------------------------------------------------------------

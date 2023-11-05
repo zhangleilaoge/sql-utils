@@ -1,0 +1,795 @@
+-- 每月9日积分数据出来后再补充积分数据
+-- 202309
+-- 2023-09-30
+---------------------------------------------------------------------------B14----------------------------------------------------------------------------
+SELECT
+  P2.AREA_NAME,
+CASE
+    WHEN RIGHT('202309', 2) = '01' THEN P1.LJ_CDMA_LOST_LV_202001
+    WHEN RIGHT('202309', 2) = '02' THEN P1.LJ_CDMA_LOST_LV_202002
+    WHEN RIGHT('202309', 2) = '03' THEN P1.LJ_CDMA_LOST_LV_202003
+    WHEN RIGHT('202309', 2) = '04' THEN P1.LJ_CDMA_LOST_LV_202004
+    WHEN RIGHT('202309', 2) = '05' THEN P1.LJ_CDMA_LOST_LV_202005
+    WHEN RIGHT('202309', 2) = '06' THEN P1.LJ_CDMA_LOST_LV_202006
+    WHEN RIGHT('202309', 2) = '07' THEN P1.LJ_CDMA_LOST_LV_202007
+    WHEN RIGHT('202309', 2) = '08' THEN P1.LJ_CDMA_LOST_LV_202008
+    WHEN RIGHT('202309', 2) = '09' THEN P1.LJ_CDMA_LOST_LV_202009
+    WHEN RIGHT('202309', 2) = '10' THEN P1.LJ_CDMA_LOST_LV_202010
+    WHEN RIGHT('202309', 2) = '11' THEN P1.LJ_CDMA_LOST_LV_202011
+    WHEN RIGHT('202309', 2) = '12' THEN P1.LJ_CDMA_LOST_LV_202012
+    ELSE 0
+  END 移动月均离网率,
+CASE
+    WHEN RIGHT('202309', 2) = '01' THEN P1.LJ_BRD_LOST_LV_202001
+    WHEN RIGHT('202309', 2) = '02' THEN P1.LJ_BRD_LOST_LV_202002
+    WHEN RIGHT('202309', 2) = '03' THEN P1.LJ_BRD_LOST_LV_202003
+    WHEN RIGHT('202309', 2) = '04' THEN P1.LJ_BRD_LOST_LV_202004
+    WHEN RIGHT('202309', 2) = '05' THEN P1.LJ_BRD_LOST_LV_202005
+    WHEN RIGHT('202309', 2) = '06' THEN P1.LJ_BRD_LOST_LV_202006
+    WHEN RIGHT('202309', 2) = '07' THEN P1.LJ_BRD_LOST_LV_202007
+    WHEN RIGHT('202309', 2) = '08' THEN P1.LJ_BRD_LOST_LV_202008
+    WHEN RIGHT('202309', 2) = '09' THEN P1.LJ_BRD_LOST_LV_202009
+    WHEN RIGHT('202309', 2) = '10' THEN P1.LJ_BRD_LOST_LV_202010
+    WHEN RIGHT('202309', 2) = '11' THEN P1.LJ_BRD_LOST_LV_202011
+    WHEN RIGHT('202309', 2) = '12' THEN P1.LJ_BRD_LOST_LV_202012
+    ELSE 0
+  END 宽带月均离网率,
+CASE
+    WHEN RIGHT('202309', 2) = '01' THEN P1.MON_CDMA_LOST_LV_202001
+    WHEN RIGHT('202309', 2) = '02' THEN P1.MON_CDMA_LOST_LV_202002
+    WHEN RIGHT('202309', 2) = '03' THEN P1.MON_CDMA_LOST_LV_202003
+    WHEN RIGHT('202309', 2) = '04' THEN P1.MON_CDMA_LOST_LV_202004
+    WHEN RIGHT('202309', 2) = '05' THEN P1.MON_CDMA_LOST_LV_202005
+    WHEN RIGHT('202309', 2) = '06' THEN P1.MON_CDMA_LOST_LV_202006
+    WHEN RIGHT('202309', 2) = '07' THEN P1.MON_CDMA_LOST_LV_202007
+    WHEN RIGHT('202309', 2) = '08' THEN P1.MON_CDMA_LOST_LV_202008
+    WHEN RIGHT('202309', 2) = '09' THEN P1.MON_CDMA_LOST_LV_202009
+    WHEN RIGHT('202309', 2) = '10' THEN P1.MON_CDMA_LOST_LV_202010
+    WHEN RIGHT('202309', 2) = '11' THEN P1.MON_CDMA_LOST_LV_202011
+    WHEN RIGHT('202309', 2) = '12' THEN P1.MON_CDMA_LOST_LV_202012
+    ELSE 0
+  END 移动当月离网率,
+CASE
+    WHEN RIGHT('202309', 2) = '01' THEN P1.MON_BRD_LOST_LV_202001
+    WHEN RIGHT('202309', 2) = '02' THEN P1.MON_BRD_LOST_LV_202002
+    WHEN RIGHT('202309', 2) = '03' THEN P1.MON_BRD_LOST_LV_202003
+    WHEN RIGHT('202309', 2) = '04' THEN P1.MON_BRD_LOST_LV_202004
+    WHEN RIGHT('202309', 2) = '05' THEN P1.MON_BRD_LOST_LV_202005
+    WHEN RIGHT('202309', 2) = '06' THEN P1.MON_BRD_LOST_LV_202006
+    WHEN RIGHT('202309', 2) = '07' THEN P1.MON_BRD_LOST_LV_202007
+    WHEN RIGHT('202309', 2) = '08' THEN P1.MON_BRD_LOST_LV_202008
+    WHEN RIGHT('202309', 2) = '09' THEN P1.MON_BRD_LOST_LV_202009
+    WHEN RIGHT('202309', 2) = '10' THEN P1.MON_BRD_LOST_LV_202010
+    WHEN RIGHT('202309', 2) = '11' THEN P1.MON_BRD_LOST_LV_202011
+    WHEN RIGHT('202309', 2) = '12' THEN P1.MON_BRD_LOST_LV_202012
+    ELSE 0
+  END 宽带当月离网率
+FROM
+  CSROP.HEMS_A_ASSET_LOST_MON_Z P1 --B14
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.BIL_MONTH = '202309'
+  AND P2.AREA_LVL IN ('2', '3')
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+/*
+ SELECT 
+ P1.BIL_MONTH
+ ,P1.AREA_ID
+ ,PS.AREA_NAME 地市
+ ,CASE WHEN (SUM(P1.MSU_ARR_MON_USER) + SUM(P1.MSU_ARR_MON_USER)- SUM(P1.MSU_JZ_YEAR_USER)) = 0 THEN 0 ELSE (SUM(P1.MSU_NEW_MON_YEAR_USER) - SUM(P1.MSU_JZ_YEAR_USER))
+ /((SUM(P1.MSU_ARR_MON_USER) + SUM(P1.MSU_ARR_MON_USER)- SUM(P1.MSU_JZ_YEAR_USER))/2)/5 END LJ_CDMA_LOST_LV --移动月均离网率 --修改第二个月份
+ ,CASE WHEN (SUM(P1.MSU_ARR_MON_USER)+SUM(P2.MSU_ARR_MON_USER)) = 0 THEN 0 ELSE (SUM(P1.MSU_NEW_MON_CPL_USER) - SUM(P1.MSU_JZ_MONTH_USER))/((SUM(P1.MSU_ARR_MON_USER)+SUM(P2.MSU_ARR_MON_USER))/2) END MON_CDMA_LOST_LV --移动当月离网率
+ FROM PRTDATA.MKTOL_YXYB_CDMA_SKSZ_M_Z P1  --营销月报-移动业务NEW
+ LEFT JOIN PRTDATA.MKTOL_YXYB_CDMA_SKSZ_M_Z P2
+ ON P1.AREA_ID = P2.AREA_ID
+ AND P1.XIAOYUAN_FLG = P2.XIAOYUAN_FLG 
+ AND P1.CORP_USER_NAME = P2.CORP_USER_NAME 
+ AND P1.MKT_CUST_STATTP_NAME = P2.MKT_CUST_STATTP_NAME
+ AND P2.BIL_MONTH = LEFT('202309',4)||'04' --上月
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS
+ ON P1.AREA_ID = PS.AREA_ID
+ WHERE P1.BIL_MONTH = LEFT('202309',4)||'05' --修改月份
+ AND P1.AREA_ID IN ('1','2','3','4','5','9','32518','7','12','10','8','11')
+ GROUP BY P1.BIL_MONTH
+ ,P1.AREA_ID 
+ ,PS.AREA_NAME
+ ,PS.AREA_LVL
+ ,PS.ORDER_ID
+ ORDER BY PS.AREA_LVL,CAST(PS.ORDER_ID AS INT)
+ ;
+ 
+ SELECT 
+ P1.BIL_MONTH
+ ,P1.AREA_ID
+ ,PS.AREA_NAME 区域名称
+ ,CASE WHEN (SUM(P1.MSU_KD_ARR_USER) + SUM(P1.MSU_KD_ARR_USER)- SUM(P1.MSU_JZ_YEAR_KD_ARR_USER)) = 0 THEN 0 ELSE (SUM(P1.MSU_NEW_MON_YEAR_KD_USER) - SUM(P1.MSU_JZ_YEAR_KD_ARR_USER))/((SUM(P1.MSU_KD_ARR_USER) + SUM(P1.MSU_KD_ARR_USER)- SUM(P1.MSU_JZ_YEAR_KD_ARR_USER))/2)/5  END  LJ_BRD_LOST_LV --宽带月均离网率 --修改第二个月份 
+ ,CASE WHEN (SUM(P1.MSU_KD_ARR_USER)+SUM(P2.MSU_KD_ARR_USER)) = 0 THEN 0 ELSE (SUM(P1.MSU_NEW_MON_KD_USER) - SUM(P1.MSU_JZ_KD_ARR_USER))/((SUM(P1.MSU_KD_ARR_USER)+SUM(P2.MSU_KD_ARR_USER))/2)  END  MON_BRD_LOST_LV --宽带当月离网率
+ FROM PRTDATA.MKTOL_YXYB_LAN_ITV_M_Z P1  --营销月报-宽带ITV业务NEW
+ LEFT JOIN PRTDATA.MKTOL_YXYB_LAN_ITV_M_Z P2
+ ON P1.AREA_ID = P2.AREA_ID
+ AND P1.XIAOYUAN_FLG = P2.XIAOYUAN_FLG 
+ AND P1.CORP_USER_NAME = P2.CORP_USER_NAME 
+ AND P1.MKT_CUST_STATTP_NAME = P2.MKT_CUST_STATTP_NAME
+ AND P2.BIL_MONTH = LEFT('202309',4)||'04' --上月
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS
+ ON P1.AREA_ID = PS.AREA_ID
+ WHERE P1.BIL_MONTH = LEFT('202309',4)||'05' --修改月份 
+ AND P1.AREA_ID = 10000266
+ GROUP BY P1.BIL_MONTH
+ ,P1.AREA_ID
+ ,PS.AREA_NAME
+ ;
+ 
+ SELECT 
+ P1.BIL_MONTH
+ ,P1.AREA_ID
+ ,PS.AREA_NAME 区域名称
+ ,SUM(P1.MSU_KD_ARR_USER) 宽带用户数 --宽带（含企业闪讯）到达数
+ ,SUM(P1.MSU_JZ_YEAR_KD_ARR_USER) 宽带（含闪讯）年累计净增 --宽带（含企业闪讯）到达数年累计净增
+ ,SUM(P1.MSU_NEW_MON_YEAR_KD_USER) 宽带（含闪讯）年累计净增 --宽带年新增
+ ,CASE WHEN (SUM(P1.MSU_KD_ARR_USER) + SUM(P1.MSU_KD_ARR_USER)- SUM(P1.MSU_JZ_YEAR_KD_ARR_USER)) = 0 THEN 0 ELSE (SUM(P1.MSU_NEW_MON_YEAR_KD_USER) - SUM(P1.MSU_JZ_YEAR_KD_ARR_USER))/((SUM(P1.MSU_KD_ARR_USER) + SUM(P1.MSU_KD_ARR_USER)- SUM(P1.MSU_JZ_YEAR_KD_ARR_USER))/2)/5  END  LJ_BRD_LOST_LV --宽带月均离网率 
+ ,CASE WHEN (SUM(P1.MSU_KD_ARR_USER)+SUM(P2.MSU_KD_ARR_USER)) = 0 THEN 0 ELSE (SUM(P1.MSU_NEW_MON_KD_USER) - SUM(P1.MSU_JZ_KD_ARR_USER))/((SUM(P1.MSU_KD_ARR_USER)+SUM(P2.MSU_KD_ARR_USER))/2)  END  MON_BRD_LOST_LV --宽带当月离网率
+ FROM PRTDATA.MKTOL_YXYB_LAN_ITV_M_Z P1  --营销月报-宽带ITV业务NEW
+ LEFT JOIN PRTDATA.MKTOL_YXYB_LAN_ITV_M_Z P2
+ ON P1.AREA_ID = P2.AREA_ID
+ AND P1.XIAOYUAN_FLG = P2.XIAOYUAN_FLG 
+ AND P1.CORP_USER_NAME = P2.CORP_USER_NAME 
+ AND P1.MKT_CUST_STATTP_NAME = P2.MKT_CUST_STATTP_NAME
+ AND P2.BIL_MONTH = LEFT('202309',4)||'04' --上月
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS
+ ON P1.AREA_ID = PS.AREA_ID
+ WHERE P1.BIL_MONTH = LEFT('202309',4)||'05' 
+ AND P1.AREA_ID = 10000266
+ GROUP BY P1.BIL_MONTH
+ ,P1.AREA_ID
+ ,PS.AREA_NAME
+ ;
+ */
+---------------------------------------------------------------------------B10----------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P2.AREA_NAME 地市,
+  MRJ_OUT_GT_LV 高套用户月均流失率,
+  OUT_GT_RJ * TO_CHAR(LAST_DAY(TO_DATE('202309', 'YYYYMM')), 'DD') / 10000 离网数 （ 万 ）,
+  OUT_GT_RJ 日均离网数,
+  ARR_GT / 10000 融合129及以上高套用户到达 （ 万 ）,
+  OUT_GT_LV 高套用户当月流失率
+FROM
+  CSROP.COP_R_GT_MON_Z P1 --B10
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P2.AREA_LVL IN ('2', '3')
+  AND P1.BIL_MONTH = '202309'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+---------------------------------------------------------------------------A12----------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P2.AREA_NAME 地市,
+  P1.CUST_211_LV RH211KH_LV --211融合渗透率
+,
+  P1.CUST_211_CNT RH211KH_CNT --211融合客户到达
+,
+  P1.MIX_CUST_JT_CNT 个人证件融合客户数,
+  P1.CMON_21X_JZ RH211KH_YJZ --211融合客户月净增
+,
+  P1.SUM_21X_JZ 累计净增数
+FROM
+  CSROP.COP_R_MIX_CUST_21X_MON_Z P1 --A12
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P2.AREA_LVL IN ('2', '3')
+  AND P1.BIL_MONTH = '202309'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+/*
+ SELECT   P1.BIL_MONTH 
+ ,P2.AREA_NAME 		地市
+ ,P1.CUST_211_LV 	RH211KH_LV			--211融合渗透率
+ ,P1.CUST_211_CNT  						--211融合客户到达
+ -- ,P1.MIX_CUST_JT_CNT 个人证件融合客户数	
+ ,P1.CUST_211_CNT - P3.CUST_211_CNT 		CUST_211_CNT_JZ
+ FROM CSROP.HEMS_A_MKT_JFJB_1_TB_Z P1 			--经分简报
+ LEFT JOIN CSROP.HEMS_A_MKT_JFJB_1_TB_Z P3
+ ON P1.AREA_ID = P3.AREA_ID 
+ AND P3.MAINTAIN_GROUP = '总体' 
+ AND P3.IS_SINGLE_CUST = '总体' 
+ AND P3.BIL_MONTH  = '202212'
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 
+ ON P1.AREA_ID = P2.AREA_ID
+ WHERE P1.AREA_LEVEL IN ('2','3')  AND P1.MAINTAIN_GROUP = '总体' AND P1.IS_SINGLE_CUST = '总体'
+ AND P1.BIL_MONTH  = '202309'
+ ORDER BY P2.AREA_LVL,CAST(P2.ORDER_ID AS INT)
+ ;
+ */
+---------------------------------------------------------------------------B17----------------------------------------------------------------------------
+/*
+ SELECT 	 P1.BIL_MONTH 
+ ,P2.AREA_NAME 地市
+ ,P1.CUST_MIX_129_PCT 		SS129RHKH_LV		--实收129融合渗透率
+ ,P1.CUST_MIX_129_CNT 		SS129RHKH_CNT		--实收129融合客户到达
+ -- ,P1.CUST_MIX_129_CNT_HB  SS129RHKH_YJZ		--实收129融合客户月净增
+ ,P1.CUST_MIX_129_CNT_HB2 	累计净增数
+ FROM CSROP.COP_R_CUST_PROM_MON_Z  P1--B17
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z 	P2 
+ ON P1.AREA_ID = P2.AREA_ID
+ WHERE P1.AREA_LEVEL IN ('2','3') 
+ AND P1.IS_SINGLE_CUST = '个人证件' 
+ AND P1.MAINTAIN_GROUP = '总体'
+ AND P1.BIL_MONTH = '202309'
+ ORDER BY P2.AREA_LVL,CAST(P2.ORDER_ID AS INT)
+ ;
+ */
+CREATE LOCAL TEMPORARY TABLE COP_R_CUST_PROM_MON_Z ON COMMIT PRESERVE ROWS AS(
+  SELECT
+    P1.MONTH_ID BIL_MONTH,
+    P1.AREA_LEVEL,
+    P1.AREA_ID,
+    P2.AREA_NAME 地市,
+    '个人证件' IS_SINGLE_CUST,
+    '总体' MAINTAIN_GROUP,
+    P1.MIX_CUST_AMTP129_CNT / P1.MIX_CUST_CNT CUST_MIX_129_PCT --实收129及以上融合客户渗透率
+,
+    P1.MIX_CUST_AMTP129_CNT / 10000 CUST_MIX_129_CNT --实收129融合客户到达
+,
+    P1.MIX_CUST_CNT / 10000 MIX_CUST_CNT --个人证件融合客户数	
+,
+(
+      P1.MIX_CUST_AMTP129_CNT - P3.MIX_CUST_AMTP129_CNT
+    ) / 10000 CUST_MIX_129_CNT_HB,
+(
+      P1.MIX_CUST_AMTP129_CNT - P4.MIX_CUST_AMTP129_CNT
+    ) / 10000 CUST_MIX_129_CNT_HB2
+  FROM
+    CSRTEST.TO_ZYM_LVL_FM_BILLING_ARRIVE_CDMABRD_Z P1
+    LEFT JOIN CSRTEST.TO_ZYM_LVL_FM_BILLING_ARRIVE_CDMABRD_Z P3 ON P1.AREA_ID = P3.AREA_ID
+    AND P3.MONTH_ID = TO_CHAR(
+      ADD_MONTHS(TO_DATE('202309', 'YYYYMM'), -1),
+      'YYYYMM'
+    )
+    LEFT JOIN CSRTEST.TO_ZYM_LVL_FM_BILLING_ARRIVE_CDMABRD_Z P4 ON P1.AREA_ID = P4.AREA_ID
+    AND P4.MONTH_ID = '202212'
+    LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+  WHERE
+    P1.MONTH_ID = '202309'
+)
+ORDER BY
+  AREA_ID SEGMENTED BY HASH (AREA_ID) ALL NODES KSAFE 0;
+
+SELECT
+  P1.BIL_MONTH,
+  P2.AREA_NAME 地市,
+  P1.CUST_MIX_129_PCT SS129RHKH_LV --实收129融合渗透率
+,
+  P1.CUST_MIX_129_CNT SS129RHKH_CNT --实收129融合客户到达
+  -- ,P1.CUST_MIX_129_CNT_HB SS129RHKH_YJZ --实收129融合客户月净增
+,
+  P1.CUST_MIX_129_CNT_HB2 累计净增数,
+  P1.MIX_CUST_CNT 个人证件融合客户数
+FROM
+  COP_R_CUST_PROM_MON_Z P1
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.AREA_LEVEL IN ('2', '3')
+  AND P1.IS_SINGLE_CUST = '个人证件'
+  AND P1.MAINTAIN_GROUP = '总体'
+  AND P1.BIL_MONTH = '202309'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+---------------------------------------------------------------------------A20----------------------------------------------------------------------------
+SELECT
+  P12.BIL_MONTH,
+  P12.AREA_ID,
+  P12.CZ_5G_LV ST_5GYH_LV --5G用户渗透率
+,
+  P12.CZ_5GTER_LV ST_5GZD_LV --5G终端渗透率
+,
+  P12.JTWY_LV --5G一体化渗透率
+,
+  P12.JTWY_CNT / 10000 --5G一体化用户到达
+FROM
+  CSROP.COP_R_ASSET_MON_Z P12 --A20 
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P1 ON P1.AREA_ID = P12.AREA_ID
+WHERE
+  P12.BIL_MONTH = '202309'
+  AND P12.ID_TYPE_FLG = '总体'
+  AND P12.STAR_FLG = '总体'
+  AND P12.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+ORDER BY
+  P12.BIL_MONTH,
+  P1.AREA_LVL,
+  CAST(P1.ORDER_ID AS INT);
+
+----------------------------------------------------------------------宽带提速路径日报-----------------------------------------------------------------------
+SELECT
+  P1.DATE_CD,
+  P2.AREA_NAME 地市,
+  P1.UP_1000_LV 计费有线宽带1000M及以上占比,
+  P1.UP_1000_CNT / 10000 计费有线宽带1000M及以上数,
+  P1.ALL_BRD_CNT / 10000 计费有线宽带数
+FROM
+  CSROP.COP_R_BRD_SPEEDUP_DAY_Z P1 --宽带提速路径日报
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+  AND P1.DATE_CD = '2023-09-30'
+  AND P1.CORP_USER_NAME = '总体'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+----------------------------------------------------------------------营销月报-移动业务NEW-----------------------------------------------------------------------
+/*
+ SELECT   P1.BIL_MONTH
+ ,PS.AREA_NAME 地市
+ ,SUM(MSU_MON_VALID_ACT_USER)/10000 	移动出账且有效活跃到达
+ ,SUM(MSU_ARR_MON_USER)/10000 		移动出账到达
+ ,CASE WHEN SUM(MSU_ARR_MON_USER) = 0 THEN 0 ELSE SUM(MSU_MON_VALID_ACT_USER)/SUM(MSU_ARR_MON_USER) END 移动活跃率
+ FROM PRTDATA.MKTOL_YXYB_CDMA_SKSZ_M_Z P1
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS
+ ON P1.AREA_ID = PS.AREA_ID
+ WHERE P1.AREA_ID  IN ('1','2','3','4','5','9','32518','7','12','10','8','11')
+ AND P1.BIL_MONTH = '202309'
+ GROUP BY P1.BIL_MONTH,PS.AREA_NAME,PS.ORDER_ID
+ ORDER BY CAST(PS.ORDER_ID AS INT)
+ ;
+ */
+----------------------------------------------------------------------营销月报-宽带ITV-NEW-----------------------------------------------------------------
+/*
+ SELECT 	 P1.BIL_MONTH
+ ,PS.AREA_NAME 						地市
+ ,SUM(MSU_MON_VALID_KD_USER)/10000 	宽带（含企业闪讯）月有效活跃到达
+ ,SUM(MSU_KD_ARR_USER)/10000 		宽带用户数
+ ,CASE WHEN SUM(MSU_KD_ARR_USER) = 0 THEN 0 ELSE SUM(MSU_MON_VALID_KD_USER)/SUM(MSU_KD_ARR_USER) END 宽带活跃率
+ FROM PRTDATA.MKTOL_YXYB_LAN_ITV_M_Z P1 	--营销月报-宽带ITV-NEW
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS
+ ON P1.AREA_ID = PS.AREA_ID
+ WHERE P1.AREA_ID IN ('1','2','3','4','5','9','32518','7','12','10','8','11')
+ AND P1.BIL_MONTH = '202309'
+ GROUP BY P1.BIL_MONTH,PS.AREA_NAME,PS.ORDER_ID
+ ORDER BY CAST(PS.ORDER_ID AS INT)
+ ;
+ */
+-----------------------------------------------------------------------------A4-----------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P2.AREA_NAME 地市,
+  P1.MSU_MON_VALID_YD_USER_LV 移动有效活跃用户占比 （ 大于500M或者大于30分钟 ）,
+  P1.MSU_VALID_ACT_USER_MON_JZ_LV 移动上月有效活跃用户占比 （ 大于500M或者大于30分钟 ）,
+  P1.MSU_MON_VALID_KD_USER_LV 普通宽带有效活跃占比 （ 大于300M或者大于300分钟 ）,
+  P1.ITV_BIL_ACT_ASSET_LV 天翼高清用户活跃率
+FROM
+  CSROP.HEMS_R_CUST_SHEET2_9_MON_Z P1 --A4
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P2.AREA_LVL IN ('2', '3')
+  AND P1.BIL_MONTH = '202309'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+/*
+ SELECT   P1.BIL_MONTH 
+ ,P2.AREA_NAME 					地市
+ ,P1.ITV_BIL_ACT_ASSET_LV 		--ITV活跃率
+ FROM CSROP.HEMS_A_MKT_JFJB_1_TB_Z P1 	--经分简报
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 
+ ON P1.AREA_ID = P2.AREA_ID
+ WHERE P1.AREA_LEVEL IN ('2','3')  
+ AND P1.MAINTAIN_GROUP = '总体' 
+ AND P1.IS_SINGLE_CUST = '总体'
+ AND P1.BIL_MONTH  = '202309'
+ ORDER BY P2.AREA_LVL,CAST(P2.ORDER_ID AS INT)
+ ;
+ */
+--------------------------------------------------------------------存量经营日报-------------------------------------------------------------------------
+SELECT
+  P2.AREA_NAME 地市,
+  P1.DAY_HLWK 互联网卡,
+  P1.DAY_XS_C * TO_CHAR(LAST_DAY(TO_DATE('202309', 'YYYYMM')), 'DD') / 10000 线上移动,
+  P1.DAY_ALL_C * TO_CHAR(LAST_DAY(TO_DATE('202309', 'YYYYMM')), 'DD') / 10000 移动,
+  P1.DAY_XS_C / P1.DAY_ALL_C 线上移动发展占比,
+  P1.DAY_XS_B * TO_CHAR(LAST_DAY(TO_DATE('202309', 'YYYYMM')), 'DD') / 10000 线上宽带,
+  P1.DAY_ALL_B * TO_CHAR(LAST_DAY(TO_DATE('202309', 'YYYYMM')), 'DD') / 10000 宽带,
+  P1.DAY_XS_B / P1.DAY_ALL_B 线上宽带发展占比
+FROM
+  CSROP.COP_R_CLJY_DAY_Z P1 -- 存量经营日报
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.DATE_CD = '2023-09-30'
+  AND P1.DATE_TYPE = '当月累计日均'
+  AND P1.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+--------------------------------------------------------------------客户经营积分月报-------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P2.AREA_NAME 地市,
+  P1.ALL_SCORE / 10000 / TO_CHAR(LAST_DAY(TO_DATE('202309', 'YYYYMM')), 'DD') 客户经营积分
+FROM
+  CSROP.COP_R_SCORE_DAY_TB_MON_Z P1
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.DZ_CHANNEL_FLG = '总体'
+  AND P1.AREA_LEVEL IN ('2', '3')
+  AND P1.BIL_MONTH = '202309'
+  AND P1.CCUST_FLG = '存量客户'
+  AND P1.CHANNEL_DEPT_NAME_2014 = '总体'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+--------------------------------------------------------------------客户经营经分简报-------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P2.AREA_NAME 地市,
+  P1.RH_CUST_CHG_ARPU 锁定融合客户ARPU变化 （ 元 ）,
+  P1.CUST_MIX_CNT 锁定存量融合客户数 （ 万 ）
+FROM
+  CSROP.HEMS_A_MKT_JFJB_1_TB_Z P1 --经分简报
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.AREA_LEVEL IN ('2', '3')
+  AND P1.MAINTAIN_GROUP = '总体'
+  AND P1.IS_SINGLE_CUST = '总体'
+  AND P1.BIL_MONTH = '202309'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+-----------------------------------------------------------------------小合约专项日报-------------------------------------------------------------------------
+/*
+ SELECT 
+ P2.AREA_NAME 地市
+ --,P1.MIX_PROMP99_XHY_LV 小合约渗透率	
+ ,P1.MIX_PROM_XHY_LV 		小合约渗透率														
+ FROM CSROP.COP_R_SMALL_CONTRACT_DAY_Z P1
+ LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z 		P2 
+ ON P1.AREA_ID = P2.AREA_ID
+ WHERE P2.AREA_LVL IN ('2','3') 
+ AND DATE_CD = '2023-09-30'
+ AND XHY_DATE_FLG = '当日'
+ ORDER BY P2.AREA_LVL,CAST(P2.ORDER_ID AS INT)
+ ;
+ */
+-----------------------------------------------------------------------4升5价值变化月报------------------------------------------------------------------------
+SELECT
+  P2.AREA_NAME 地市,
+  P1.CL_ARPU 存量总体ARPU,
+  P1.GTLX_ARPU 改套拉新ARPU,
+  P1.GTWLX_ARPU 改套未拉新ARPU,
+  P1.JBLX_ARPU 加包拉新ARPU,
+  P1.JBWLX_ARPU 加包未拉新ARPU
+FROM
+  CSROP.HEMS_R_4UP5G_VALUE_MON_Z P1 --4升5价值变化月报
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.BIL_MONTH = TO_CHAR(
+    ADD_MONTHS(TO_DATE('202309', 'YYYYMM'), -1),
+    'YYYYMM'
+  ) --T-2
+  AND P1.CORP_USER_NAME = '总体'
+  AND P2.AREA_LVL IN ('2', '3')
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+---------------------------------------------------------------------------B17-------------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P2.AREA_NAME 地市,
+  P1.CUST_CNT 总体客户数
+FROM
+  CSROP.COP_R_CUST_PROM_MON_Z P1 --B17
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  P1.AREA_LEVEL IN ('2', '3')
+  AND P1.IS_SINGLE_CUST = '总体'
+  AND P1.MAINTAIN_GROUP = '总体'
+  AND P1.BIL_MONTH = '202309'
+ORDER BY
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+--------------------------------------------------------------------------A15-------------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P1.AREA_ID,
+CASE
+    WHEN P1.AREA_ID = 1 THEN '全省'
+    ELSE PS.LATN_NAME
+  END 地市,
+CASE
+    WHEN P1.FHLW_HISACT = 0 THEN 0
+    ELSE P1.FHLWACT_CZ_ACT / P1.FHLW_HISACT
+  END 移动用户有效保有率
+FROM
+  CSROP.COP_R_CDMA_LWXF_MON_Z P1 -- A15
+  LEFT JOIN DMN.DMN_COM_LATN_ID PS ON P1.LATN_ID = PS.LATN_ID
+WHERE
+  P1.BIL_MONTH = '202309'
+  AND P1.LVL_ID IN ('2', '3')
+ORDER BY
+  CAST(PS.ORDER_ID AS INT);
+
+--------------------------------------------------------------------------A16------------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P1.AREA_ID,
+  P1.AREA_NAME 地市,
+CASE
+    WHEN FZX_BRD_ACT_GR = 0 THEN 0
+    ELSE FZX_LC_BRD_ACT_GR_T1ACT / FZX_BRD_ACT_GR
+  END 宽带用户有效保有率
+FROM
+  CSROP.COP_R_BRD_LWXF_MON_Z P1
+  LEFT JOIN DMN.DMN_COM_LATN_ID PS ON P1.LATN_ID = PS.LATN_ID
+WHERE
+  P1.BIL_MONTH = '202309'
+  AND P1.AREA_LEVEL IN ('2', '3')
+ORDER BY
+  CASE
+    WHEN P1.AREA_ID = 1 THEN 1
+    ELSE CAST(PS.ORDER_ID AS INT)
+  END;
+
+----------------------------------------------------------------------C网有效绑定率------------------------------------------------------------------------
+SELECT
+  P1.DATE_CD,
+  PS.AREA_NAME 地市,
+  P1.ALL_EFF_BD_PROM_LV --C网有效绑定率
+FROM
+  CSROP.COP_R_CLJY_DAY_Z P1 -- 存量经营日报
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS ON P1.AREA_ID = PS.AREA_ID
+WHERE
+  P1.DATE_CD = '2023-09-30'
+  AND P1.DATE_TYPE = '当月累计日均'
+  AND P1.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+ORDER BY
+  CAST(PS.ORDER_ID AS INT);
+
+------------------------------------------------------------------小合约价值变化月报-----------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  PS.AREA_NAME 地市,
+  P1.MON_ARPU XHY_ARPU
+FROM
+  CSROP.COP_R_SMALL_CONTRACT_MON_Z P1 --小合约价值变化月报
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS ON P1.AREA_ID = PS.AREA_ID
+WHERE
+  P1.CHANNEL_FLG = '总体'
+  AND P1.ID_TYPE_FLG = '总体'
+  AND P1.STAR_FLG = '总体'
+  AND P1.BIL_MONTH = TO_CHAR(
+    ADD_MONTHS(TO_DATE('202309', 'YYYYMM'), -1),
+    'YYYYMM'
+  ) --T-2
+  AND P1.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+ORDER BY
+  CAST(PS.ORDER_ID AS INT);
+
+------------------------------------------------------------------存量重耕价值变化月报--------------------------------------------------------------------
+/*
+ --测试表
+ SELECT   PS.AREA_NAME
+ ,P1.YLJ_CL_ARPU
+ FROM CSRTEST.COP_R_CL_CULTIVATE_MON_Z2 		P1 --存量重耕价值变化月报
+ LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z 	PS
+ ON P1.AREA_ID = PS.AREA_ID
+ WHERE P1.CHANNEL_DEPT_NAME_2014 = '总体' 
+ AND P1.ZDHY_FLG = '总体' 
+ AND P1.BIL_MONTH = TO_CHAR(ADD_MONTHS(TO_DATE('202309','YYYYMM'),-1),'YYYYMM') --T-2
+ AND P1.AREA_ID  IN ('1','2','3','4','5','9','32518','7','12','10','8','11')
+ ORDER BY CASE WHEN P1.AREA_ID = 1 THEN 1 ELSE CAST(PS.ORDER_ID AS INT) END
+ ;
+ */
+SELECT
+  P1.BIL_MONTH,
+  PS.AREA_NAME 地市 --,P1.CL_30UP_ARPU 		CLCG_ARPU		--存量重耕ARPU
+,
+  P1.STEP_YLJ_CL_ARPU 存量重耕ARPU
+FROM
+  CSROP.COP_R_CL_CULTIVATE_MON_Z P1 --存量重耕价值变化月报
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z PS ON P1.AREA_ID = PS.AREA_ID
+WHERE
+  P1.CHANNEL_DEPT_NAME_2014 = '总体'
+  AND P1.ZDHY_FLG = '总体'
+  AND P1.BIL_MONTH = TO_CHAR(
+    ADD_MONTHS(TO_DATE('202309', 'YYYYMM'), -1),
+    'YYYYMM'
+  ) --T-2
+  AND P1.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+ORDER BY
+  CAST(PS.ORDER_ID AS INT);
+
+------------------------------------------------------------------A20---------------------------------------------------------------
+SELECT
+  PS.AREA_NAME,
+  P1.ARPU 一体化ARPU
+FROM
+  CSROP.COP_R_ASSET_MON_Z P1
+  LEFT JOIN DMNVIEW.STD_MKTOL_AREA_TREE_NO_DEPT_Z PS ON P1.AREA_ID = PS.AREA_ID
+WHERE
+  P1.BIL_MONTH = '202309'
+  AND P1.ID_TYPE_FLG = '总体'
+  AND P1.STAR_FLG = '总体'
+  AND P1.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+ORDER BY
+  CASE
+    WHEN P1.AREA_ID = 1 THEN 1
+    ELSE CAST(PS.ORDER_ID AS INT)
+  END;
+
+----------------------------------------------------------------网间用户市场份额月报----------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P1.AREA_ID,
+CASE
+    WHEN SUM(P1.MSU_SETT_ARRIVE_USERS) = 0 THEN 0
+    ELSE SUM(P1.MSU_SETT_ARRIVE_USERS_DX) / SUM(P1.MSU_SETT_ARRIVE_USERS)
+  END YDFEDD_LV --移动份额到达  --网间用户达到数电信/网间用户达到数汇总
+,
+CASE
+    WHEN SUM(P1.MSU_SETT_NEW_CPL_USERS) = 0 THEN 0
+    ELSE SUM(P1.MSU_SETT_NEW_USERS_DX) / SUM(P1.MSU_SETT_NEW_CPL_USERS)
+  END DYXZ_YDFE_LV --当月新增份额  --网间用户新增数电信/网间用户新增数汇总
+  -- FROM APPMART.ULS_CPT_DLP_MON_Z P1--网间用户市场份额月报
+FROM
+  CSROP.PRT_CPT_INTER_NET_PC_MON_Z P1 --20230907更换
+  LEFT JOIN DIM.DIM_AREA_TREE_LVL6_Z P2 ON P1.AREA_ID = P2.AREA_ID
+WHERE
+  BIL_MONTH >= '202309'
+  AND BIL_MONTH <= '202309'
+  AND PRD_TYPE = '移动电话'
+  AND P1.AREA_ID IN (
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '9',
+    '32518',
+    '7',
+    '12',
+    '10',
+    '8',
+    '11'
+  )
+GROUP BY
+  P1.BIL_MONTH,
+  P1.AREA_ID,
+  P2.AREA_LVL,
+  P2.ORDER_ID
+ORDER BY
+  P1.BIL_MONTH,
+  P2.AREA_LVL,
+  CAST(P2.ORDER_ID AS INT);
+
+-------------------------------------------------------------------收报客保-------------------------------------------------------------------------------
+SELECT
+  P1.BIL_MONTH,
+  P1.CLSR_CUST_AMT_LV 存量客户收入保有率,
+  P1.CCSR_CUST_AMT_LV 存存量客户收入保有率,
+  P1.CZSR_CUST_AMT_LV 存增量客户收入保有率,
+  P1.QYCLSR_CUST_AMT_LV 政企存量客户收入保有率,
+  P1.QYCCSR_CUST_AMT_LV 政企存存量客户收入保有率,
+  P1.QYCZSR_CUST_AMT_LV 政企存增量客户收入保有率,
+  P1.GRCLSR_CUST_AMT_LV 公众存量客户收入保有率,
+  P1.GRCCSR_CUST_AMT_LV 公众存存量客户收入保有率,
+  P1.GRCZSR_CUST_AMT_LV 公众存增量客户收入保有率,
+  P2.CLSR_CUST_AMT_LV 星级存量客户收入保有率,
+  P2.CCSR_CUST_AMT_LV 星级存存量客户收入保有率,
+  P2.CZSR_CUST_AMT_LV 星级存增量客户收入保有率,
+  P1.CLKH_CUST_LV 存量客户保有率
+FROM
+  CSROP.HEMS_R_CUST_SHEET1_MON_Z P1 --A1
+  LEFT JOIN CSROP.HEMS_R_CUST_SHEET1_MON_Z P2 --A1 4-7星
+  ON P1.AREA_ID = P2.AREA_ID
+  AND P2.STAR_TYPE = '4-7星'
+  AND P2.BIL_MONTH = '202309'
+WHERE
+  P1.STAR_TYPE = '总体'
+  AND P1.BIL_MONTH = '202309'
+  AND P1.AREA_ID IN ('1');
